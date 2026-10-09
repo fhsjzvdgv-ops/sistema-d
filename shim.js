@@ -105,7 +105,7 @@
       if (t.repeatFlag) {
         if (day(t.startDate || t.created) > to) return;
         if (!TTS.comp[t.id + "@" + to]) out.push(inst(t, to));
-      } else if (!t.completedTime) out.push(Object.assign({ kind: t.kind || "TEXT" }, t));
+      } else if (!t.completedTime && !(t.after && TTS.tasks[t.after] && !TTS.tasks[t.after].completedTime)) out.push(Object.assign({ kind: t.kind || "TEXT" }, t));
     });
     return out;
   }
