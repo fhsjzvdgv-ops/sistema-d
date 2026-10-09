@@ -74,6 +74,18 @@ input,textarea{font:inherit;color:var(--ink);background:var(--card2);border:1px 
 .fut{border-radius:14px;padding:12px}
 .fut ul{padding-left:18px;margin-top:6px}
 .hidden{display:none}
+.nav button{max-width:110px}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px}
+.kcard.unread{border-color:var(--acc)}
+.kcard .fy{margin-top:6px;font-size:13px;color:var(--warn)}
+.kcard summary{cursor:pointer;color:var(--acc);font-size:13px;margin-top:6px}
+.les{padding-left:18px;margin:8px 0}
+.les li{margin-bottom:6px}
+.stg{display:flex;gap:6px;margin:8px 0}
+.stg i{flex:1;height:6px;border-radius:9px;background:var(--line)}
+.stg i.on{background:var(--xp)}
+.inb{display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.inb button{width:32px;height:32px;border-radius:9px;background:var(--card2);flex:none}
 </style>
 </head>
 <body>
@@ -82,12 +94,14 @@ input,textarea{font:inherit;color:var(--ink);background:var(--card2);border:1px 
 <nav class="nav">
   <button data-v="today" class="on"><span>⚡</span>Сегодня</button>
   <button data-v="quests"><span>🗺</span>Квесты</button>
+  <button data-v="learn"><span>📚</span>Знания</button>
   <button data-v="duel"><span>⚔️</span>Дуэль</button>
   <button data-v="me"><span>👤</span>Я</button>
 </nav>
 <div class="toast" id="toast"></div>
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 
+<script src="base.js?v=3"></script>
 <script>
 // ================= КОНТЕНТ =================
 const PATHS={
@@ -232,7 +246,9 @@ let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S)S={log:[],qs:{},howto:false,bestStreak:0};
 S=Object.assign({name:'Красная Шапочка',cls:'Битмейкер',goal:'К 9 ноября: военкомат закрыт · 2 трека готовы · вышел на работу · хожу в зал',
-  rv:{name:'Эдуард',xp:'',streak:'',test:'',brave:''},punish:PUNISH_DEF,tests:[],weights:[],debt:0,lastChk:''},S);
+  rv:{name:'Эдуард',xp:'',streak:'',test:'',brave:''},punish:PUNISH_DEF,tests:[],weights:[],debt:0,lastChk:'',
+  cdone:{},read:[],libStart:'',inbox:[],reviews:{},tired:0},S);
+if(!S.libStart){S.libStart=new Date().toISOString().slice(0,10)}
 if(S.rival){S.rv.name=S.rival.name||S.rv.name;S.rv.xp=S.rival.xp||'';delete S.rival}
 if(S.name==='Дарий')S.name='Красная Шапочка';
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -271,6 +287,76 @@ function checkMissed(){
   S.lastChk=y;save();
   if(n)setTimeout(()=>sheet(`<h1 style="color:var(--bad)">Пропуск: ${n} дн.</h1><p style="margin:8px 0">−${n*PENALTY} XP и ${n*PENALTY} отжиманий в долг. Пока долг висит, опыт идёт в половину.</p>${futureHtml()}<button class="btn warn" style="margin-top:12px" onclick="closeSheet()">Понял, отрабатываю</button>`),300);
 }
+
+// ================= КУРС И ЗНАНИЯ =================
+const CARD={};BASE.cards.forEach(c=>CARD[c.id]=c);
+const tDone=m=>(S.cdone[m.id]||[]).length>=m.tasks.length;
+const curTheme=()=>BASE.course.find(m=>!tDone(m));
+function unlockedCards(){
+  const set=new Set(BASE.cards.filter(c=>c.id.startsWith('g.')).map(c=>c.id));
+  const cur=curTheme();
+  for(const m of BASE.course){m.cards.forEach(i=>set.add(i));if(m===cur)break}
+  // свиток дня: каждый день +1 карточка из остальной базы
+  const days=Math.floor((new Date(today()+'T12:00')-new Date(S.libStart+'T12:00'))/864e5)+1;
+  const order=[...BASE.course.flatMap(m=>m.cards),...BASE.cards.map(c=>c.id)];
+  let n=days;for(const i of order){if(n<=0)break;if(!set.has(i)){set.add(i);n--}}
+  return set;
+}
+function dailyCard(){const u=unlockedCards();return BASE.cards.find(c=>u.has(c.id)&&!S.read.includes(c.id))}
+function readCard(id){if(S.read.includes(id))return;S.read.push(id);award({d:today(),id:'read:'+id,p:'head',xp:5,t:'Знание: '+CARD[id].t});render()}
+function toggleTask(mid,i){
+  const m=BASE.course.find(x=>x.id===mid),arr=S.cdone[mid]=S.cdone[mid]||[],key=`c:${mid}:${i}`;
+  if(arr.includes(i)){arr.splice(arr.indexOf(i),1);unaward(e=>e.id===key);unaward(e=>e.id==='cdone:'+mid)}
+  else{arr.push(i);award({d:today(),id:key,p:m.p,xp:40,t:m.tasks[i].t});
+    if(arr.length===m.tasks.length){S.log.push({d:today(),id:'cdone:'+mid,p:m.p,xp:100,t:'Тема: '+m.t});save();const nx=curTheme();
+      setTimeout(()=>sheet(`<h1>Тема пройдена!</h1><p style="margin:8px 0">${esc(m.t)} · <b class="win">+100 XP</b></p>${nx?`<p>Открылась новая тема: <b>${esc(nx.t)}</b> и ${nx.cards.length} карточек знаний.</p>`:'<p>Курс пройден целиком. Легенда.</p>'}<button class="btn" onclick="closeSheet()">Дальше</button>`),500)}}
+  save();render();
+}
+function cardHtml(c,u){
+  if(!u)return '';
+  const unread=!S.read.includes(c.id);
+  return `<div class="kcard ${unread?'unread':''}"><div class="row"><b class="sp">${esc(c.t)}</b>${unread?`<button class="tag" style="background:var(--acc);color:#fff" onclick="readCard('${c.id}')">Прочитал +5</button>`:'<span class="tag">✓</span>'}</div>
+    <div style="margin-top:6px">${esc(c.x)}</div>${c.a?`<details><summary>Показать ответ</summary><div class="small" style="margin-top:4px">${esc(c.a)}</div></details>`:''}${c.fy?`<div class="fy">▶ Для тебя: ${esc(c.fy)}</div>`:''}</div>`;
+}
+function themeHtml(m,full){
+  const arr=S.cdone[m.id]||[],idx=BASE.course.indexOf(m)+1,u=unlockedCards();
+  return `<div class="card"><div class="small">КУРС · СТУПЕНЬ ${m.st} «${esc(BASE.stages[m.st-1].t)}» · ТЕМА ${idx} ИЗ ${BASE.course.length}</div>
+  <h1 style="font-size:19px;margin-top:4px">${esc(m.t)}</h1><p class="small" style="margin-top:6px">${esc(m.why)}</p>
+  ${full?`<ul class="les">${m.les.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:''}
+  ${m.tasks.map((t,i)=>{const on=arr.includes(i);return `<button class="step ${on?'done':''}" onclick="toggleTask('${m.id}',${i})"><div class="chk">${on?'✓':''}</div><div class="sp"><div class="t">${esc(t.t)}</div>${on?'':`<div class="first">▶ ${esc(t.how)}</div>`}</div><div class="xp">+40</div></button>`}).join('')}
+  ${full?'':`<button class="btn ghost" style="margin-top:10px" onclick="cur='learn';render();scrollTo(0,0)">Урок и карточки темы →</button>`}</div>
+  ${full?`<h2>Карточки темы · ${m.cards.filter(i=>S.read.includes(i)).length}/${m.cards.length}</h2>`+m.cards.map(i=>cardHtml(CARD[i],u.has(i))).join(''):''}`;
+}
+function vLearn(){
+  const m=curTheme(),u=unlockedCards();
+  let h=m?`<h2>Текущая тема</h2>`+themeHtml(m,true):'<div class="card"><h1>Курс пройден!</h1></div>';
+  h+=`<h2>Путь курса</h2><div class="card">`+BASE.stages.map((st,si)=>{const ms=BASE.course.filter(x=>x.st===si+1);return `<div style="margin-bottom:10px"><b>${si+1}. ${esc(st.t)}</b> <span class="small">${esc(st.why)}</span><div class="stg">${ms.map(x=>`<i class="${tDone(x)?'on':''}" title="${esc(x.t)}"></i>`).join('')}</div><div class="small">${ms.map(x=>(tDone(x)?'✓ ':x===m?'▶ ':'🔒 ')+esc(x.t)).join(' · ')}</div></div>`}).join('')+`<div class="small">🔒 Ступень 5 «Девушки» — с ранга D.</div></div>`;
+  h+=`<h2>Библиотека · открыто ${u.size} из ${BASE.cards.length} · прочитано ${S.read.length}</h2><p class="small" style="margin-bottom:8px">Каждый день открывается одна новая карточка, остальные — вместе с темами курса.</p>`;
+  for(const g of BASE.groups){const cs=BASE.cards.filter(c=>c.g===g),op=cs.filter(c=>u.has(c.id));
+    h+=`<details class="q"><summary><div class="row"><b class="sp">${esc(g)}</b><span class="tag">${op.length}/${cs.length}</span></div></summary><div class="steps">${op.length?op.map(c=>cardHtml(c,1)).join(''):'<p class="small">Пока закрыто.</p>'}</div></details>`}
+  return h;
+}
+// ================= ВХОДЯЩИЕ И НЕДЕЛЬНЫЙ ОБЗОР (Ваагн) =================
+function addInbox(){const el=document.getElementById('inb');const t=el.value.trim();if(!t)return;S.inbox.push({t,d:today()});el.value='';save();render();setTimeout(()=>document.getElementById('inb')&&document.getElementById('inb').focus(),50)}
+function inboxDone(i){const it=S.inbox.splice(i,1)[0];award({d:today(),id:'inb:'+Date.now(),p:'deals',xp:5,t:it.t});render()}
+function inboxDel(i){S.inbox.splice(i,1);save();render()}
+function inboxHtml(){
+  return `<h2>Входящие · ${S.inbox.length}</h2><div class="card"><div class="small" style="margin-bottom:8px">Всё, что висит в голове, — сюда. Сделал → ✓ (+5 XP). Не нужно → ✕.</div>
+  <div class="row"><input id="inb" placeholder="Что висит в голове?" onkeydown="if(event.key==='Enter')addInbox()"><button class="btn" style="width:auto" onclick="addInbox()">+</button></div>
+  ${S.inbox.map((x,i)=>`<div class="inb"><div class="sp">${esc(x.t)}</div><button onclick="inboxDone(${i})">✓</button><button onclick="inboxDel(${i})">✕</button></div>`).join('')}</div>`;
+}
+const REVIEW=['Разобрал «Входящие» до нуля','Сделал физтест (вкладка «Дуэль»)','Посмотрел цель месяца: иду или нет','Выбрал главное дело на неделю и записал во «Входящие»'];
+function reviewHtml(){
+  const wk=weekStart();if(new Date().getDay()!==0&&!(new Date().getDay()===1&&!S.reviews[addD(wk,-7)]))return '';
+  const key=new Date().getDay()===0?wk:addD(wk,-7);if(S.reviews[key]===true)return '';
+  const r=S.reviews[key]||[];
+  return `<h2>Недельный обзор (по Ваагну)</h2><div class="card warn">${REVIEW.map((t,i)=>`<button class="step ${r.includes(i)?'done':''}" onclick="revTick('${key}',${i})"><div class="chk">${r.includes(i)?'✓':''}</div><div class="sp t">${t}</div></button>`).join('')}
+  <div class="small" style="margin:8px 0 6px">Усталость за неделю: 1 — норм · 2 — новое не брать · 3 — только сон, еда, прогулка · 4 — врач и отдых</div>
+  <div class="grid2" style="grid-template-columns:repeat(4,1fr)">${[1,2,3,4].map(n=>`<button class="btn ${S.tired===n?'':'ghost'}" onclick="S.tired=${n};save();render()">${n}</button>`).join('')}</div>
+  <button class="btn" style="margin-top:10px" onclick="revDone('${key}')">Обзор сделан · +40 XP</button></div>`;
+}
+function revTick(k,i){const r=S.reviews[k]=Array.isArray(S.reviews[k])?S.reviews[k]:[];r.includes(i)?r.splice(r.indexOf(i),1):r.push(i);save();render()}
+function revDone(k){if(!S.tired)return toast('Выбери уровень усталости');S.reviews[k]=true;award({d:today(),id:'review:'+k,p:'deals',xp:40,t:'Недельный обзор'});render()}
 
 // ================= ЭФФЕКТЫ =================
 let ac;
@@ -319,9 +405,13 @@ function vToday(){
     h+=`<h2>Главное сейчас</h2><div class="card"><div class="row"><b class="sp">${esc(boss.t)}</b><span class="tag">${daysLeft(boss.dl)} дн.</span></div>
     <div style="margin-top:8px">${esc(s.t)}</div>${s.first?`<div class="first">▶ ${esc(s.first)}</div>`:''}
     <button class="btn" style="margin-top:12px" onclick="toggleStep('${boss.id}',${i})">Сделал · +${s.xp} XP</button></div>`}
+  h+=reviewHtml();
+  const th=curTheme();if(th)h+=`<h2>Курс</h2>`+themeHtml(th,false);
+  const dc=dailyCard();if(dc)h+=`<h2>Свиток дня</h2>`+cardHtml(dc,1);
   const main=DAILIES.filter(d=>d.main),extra=DAILIES.filter(d=>!d.main);
   h+=`<h2>Главные 6 · ${main.filter(d=>doneToday(d.id)).length}/6 · все = +50 XP</h2>`+main.map(deedBtn).join('');
   h+=`<h2>Бонусные</h2>`+extra.map(deedBtn).join('');
+  h+=inboxHtml();
   h+=`<h2>Пути</h2><div class="paths">`+Object.entries(PATHS).map(([k,p])=>{const x=pathXP(k);return `<div class="path"><div class="small"><span class="dot" style="background:${p.c}"></span>${p.n}</div><b>ур. ${lvlOf(x*2)}</b> <span class="small">${x} XP</span></div>`}).join('')+`</div>`;
   return h;
 }
@@ -397,7 +487,7 @@ function vMe(){
 }
 function render(){
   drawTop();
-  document.getElementById('view').innerHTML={today:vToday,quests:vQuests,duel:vDuel,me:vMe}[cur]();
+  document.getElementById('view').innerHTML={today:vToday,quests:vQuests,learn:vLearn,duel:vDuel,me:vMe}[cur]();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===cur));
   S.bestStreak=Math.max(S.bestStreak||0,streak());
 }
@@ -456,6 +546,8 @@ function howTo(){
   <p>🔥 <b>Серия</b> — дни подряд хотя бы с одним делом. Все «главные 6» за день = +50 XP.</p>
   <p>💀 <b>Штраф</b>. Пропустил день — −30 XP и 30 отжиманий в долг. Пока не отдал, опыт идёт в половину.</p>
   <p>🗺 <b>Квесты</b> — большие цели по шагам. «Девушки» откроются на ранге D.</p>
+  <p>📚 <b>Знания</b> — курс из 20 тем по базе Арсена, Ваагна и Лимарева. Тема открывается, когда закрыты 3 задания прошлой. Каждый день — новый «свиток».</p>
+  <p>📥 <b>Входящие</b> — всё, что висит в голове, скидывай туда. В воскресенье — недельный обзор.</p>
   <p>⚔️ <b>Дуэль</b> с Эдуардом по 4 дисциплинам. Проигравшему крутится рулетка.</p>
   <p>💾 Данные живут в телефоне. Раз в неделю жми «Скачать копию» во вкладке «Я».</p></div>
   <button class="btn" onclick="S.howto=true;save();closeSheet()">Понял, погнали</button>`);
