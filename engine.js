@@ -172,9 +172,14 @@
     while (set.has(d)) { n++; d = S.addDays(d, -1); }
     return n;
   }
-  S.taskCard = function (title) {
+  const KIND = [[/^курс/, "Задание курса", "Тема курса идёт неделю. В ней 3 задания — делаешь по одному в любой день, порядок любой. Закрыл все 3 — тема пройдена, открывается следующая. В серию не идёт, но даёт опыт и двигает курс."],
+    [/^испытание/, "Испытание дня", "Реальное испытание из тропы пути, от лёгких к трудным. Одно в день: сделал — завтра откроется следующее. Не успел — оно подождёт, штрафа нет."],
+    [/^наставник/, "Задание наставника", "Одно задание на всю неделю, в той ветке, где ты был слабее всего на прошлой неделе. Не спеши: сделать можно в любой день до воскресенья."]];
+  S.taskCard = function (title, tag) {
     const TT = window.SYSD.TT(), c = S.D.config || {}, t = S.today();
     const base = Object.values(TT.tasks).find((x) => !x.deleted && (x.title === title || String(x.title).slice(0, 12) === String(title).slice(0, 12)));
+    const kd = !base && KIND.find((k) => k[0].test(tag || ""));
+    if (kd) { let mm; mm = S.FX.modal([h("div", { class: "m-sys" }, kd[1].toUpperCase()), h("div", { class: "m-t" }, title), h("div", { class: "m-x" }, kd[2]), h("div", { class: "m-x muted" }, tag), h("div", { class: "m-btns" }, h("button", { class: "btn ghost", type: "button", onclick: () => mm.close() }, "Закрыть"))], { cls: "sheet" }); return; }
     let blockKey = null; Object.keys(c.dailyBlocks || {}).forEach((k) => { if ((c.dailyBlocks[k].steps || []).some((s) => s.title === title || (base && s.taskId === base.id))) blockKey = k; });
     const blk = blockKey ? c.dailyBlocks[blockKey] : null;
     const dl = ((S.D.state || {}).dailies || []).find((x) => x.block === blockKey);
@@ -229,12 +234,48 @@
       const sm = body.querySelector("small");
       if (base && base.cond && sm && !r.classList.contains("done")) {
         const cls = S.ttClass(Object.assign({}, base, { id: base.id + "@" + S.today() }));
-        sm.textContent = (base.main ? "главное" : "бонус") + (cls && cls.r ? " · " + S.preview(cls.r, cls.p) : "") + " · " + base.cond;
+        sm.textContent = (base.main ? "главное" : base.repeatFlag ? "бонус" : "разовое") + (cls && cls.r ? " · " + S.preview(cls.r, cls.p) : "") + " · " + base.cond;
       }
       body.appendChild(h("div", { class: "tl-more" }, "подробнее ›"));
-      body.addEventListener("click", () => S.taskCard(tt.textContent));
+      const tagT = (body.querySelector("small") || {}).textContent || ""; body.addEventListener("click", () => S.taskCard(tt.textContent, tagT));
     });
+    restructure(root);
   };
+  S.dailyQuestsBox = () => h("span");
+  function group(title, sub, rows, open) {
+    const det = h("details", { class: "dq" }); if (open) det.open = true;
+    det.appendChild(h("summary", null, h("span", { class: "dq-t" }, title), h("span", { class: "dq-n" }, String(rows.length)), h("span", { class: "more" }, "открыть")));
+    det.appendChild(h("div", { class: "qlist" }, sub ? h("div", { class: "muted" }, sub) : null, h("div", { class: "dlist" }, rows)));
+    return h("section", { class: "win" }, det);
+  }
+  function restructure(root) {
+    const restDet = [...root.querySelectorAll("details.dq")].find((d) => /Остальные дела/.test(d.textContent.slice(0, 40)));
+    if (!restDet) return;
+    const sec = restDet.closest("section") || restDet;
+    const rows = [...restDet.querySelectorAll(".dl")], TTt = window.SYSD.TT().tasks;
+    const bonus = [], course = [], trial = [], week = [], own = [];
+    rows.forEach((r) => {
+      const t = (r.querySelector(".dl-t") || {}).textContent || "", tag = ((r.querySelector("small") || {}).textContent || "");
+      const base = Object.values(TTt).find((x) => !x.deleted && x.title === t);
+      if (base && base.cond && !base.main && base.repeatFlag) bonus.push(r);
+      else if (/^курс/.test(tag)) course.push(r);
+      else if (/^испытание/.test(tag)) trial.push(r);
+      else if (/^наставник/.test(tag)) week.push(r);
+      else own.push(r);
+    });
+    const skillQ = restDet.querySelector(".quest") ? [...restDet.querySelectorAll(".quest")] : [];
+    const box = h("div");
+    if (own.length) box.appendChild(group("Свои дела", "Разовые дела: долги, звонки, то, что добавил сам. Сделал — «Готово».", own, true));
+    const tasks = h("div", { class: "dlist" });
+    const lbl = (x) => h("div", { class: "lbl", style: { margin: "10px 0 4px" } }, x);
+    if (course.length) { tasks.appendChild(lbl("Курс — тема недели: 3 задания, делаешь по одному в любой день")); course.forEach((r) => tasks.appendChild(r)); }
+    if (trial.length) { tasks.appendChild(lbl("Испытание — одно в день, завтра откроется следующее")); trial.forEach((r) => tasks.appendChild(r)); }
+    if (week.length) { tasks.appendChild(lbl("Задание наставника — одно на всю неделю, не спеши")); week.forEach((r) => tasks.appendChild(r)); }
+    if (course.length + trial.length + week.length) box.appendChild(S.win("Задания", "Не обязательные на сегодня — дают опыт и двигают курс", tasks));
+    if (bonus.length) box.appendChild(group("Бонус — по желанию", "Ежедневные мелочи сверху главных. В серию не идут, просто опыт.", bonus, false));
+    if (skillQ.length) box.appendChild(S.win("Квесты навыков — на несколько дней", "Шаг за шагом, когда удобно", skillQ));
+    sec.replaceWith(box);
+  }
   V.quests = V.today;
 
   /* ---------- главный квест: цель закрывается сама ---------- */
