@@ -18,7 +18,7 @@
     checking = true;
     S.award({ id, k: "minday", t: "Минимум дня выполнен", p: "osnova", r: "D", noExtras: true, noCrit: true }).then((x) => {
       checking = false;
-      if (x && S.FX) S.FX.banner("[ ДЕНЬ ЗАСЧИТАН ]", "Три дела есть — день идёт в серию. Всё остальное сегодня — бонус.");
+      if (x && S.FX) S.FX.banner("[ ДЕНЬ ЗАСЧИТАН ]", "Главные дела закрыты — день идёт в серию. Остальное сегодня — бонус.");
     }, () => { checking = false; });
   };
   const derive0 = S.derive;

@@ -6,7 +6,7 @@
   const ME = "dariy", RIVAL = "eduard";
   const DISC = [
     ["xp", "Опыт за неделю", "Весь опыт с понедельника: дела, квесты, навыки, испытания. Штрафы вычитаются."],
-    ["streak", "Серия дней", "Сколько дней подряд набран минимум дня — любые 3 дела за день (своё дело, главное дело, квест, испытание). Один пропуск в неделю прощается сам, заморозка из магазина тоже спасает."],
+    ["streak", "Дней подряд", "Сколько дней подряд закрыты главные дела дня (у Дария: 3 из 6 главных первые 10 дней, потом на одно больше каждую десятку). Один пропуск в неделю прощается, заморозка тоже спасает."],
     ["deeds", "Дела за неделю", "Сколько дел и квестов отмечено с понедельника. Каждая галочка — одно дело."],
     ["perfect", "Идеальные дни", "Дни этой недели, когда закрыты все главные дела дня."]
   ];
@@ -14,7 +14,7 @@
     const X = S.X, ws = S.weekStart(S.today());
     let xp = 0, deeds = 0, perfect = 0;
     X.list.forEach((e) => { if ((e.d || "") < ws) return; xp += +e.xp || 0; if (S.QUEST_KINDS[e.k]) deeds++; if (e.k === "allblk") perfect++; });
-    return { name: (S.D.player || {}).nick || "Игрок", week: ws, xp, streak: (S.D.state || {}).streak || 0, deeds, perfect, level: X.level, at: Date.now() };
+    return { name: (S.D.player || {}).nick || "Игрок", week: ws, xp, streak: (function(){ const c = S.streakCalc ? S.streakCalc() : { tens: 0, inTen: 0 }; return c.tens * 10 + c.inTen; })(), deeds, perfect, level: X.level, at: Date.now() };
   };
   let rival = null, lastPush = 0, lastPull = 0, err = null;
   try { rival = JSON.parse(localStorage.getItem("sysD_rival")); } catch (e) {}

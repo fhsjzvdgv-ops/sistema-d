@@ -60,7 +60,7 @@
     hud.appendChild(h("div", { class: "hud-xp", id: "hud-xp" }, S.bar(pct, "xpbar"), h("span", null, X.L.in + " / " + X.L.need + " XP")));
     hud.appendChild(h("div", { class: "hud-chips" },
       h("span", { class: "chip gold", id: "hud-gold" }, "◆ " + X.gold),
-      h("span", { class: "chip" }, "серия " + (st.streak || 0)),
+      h("span", { class: "chip" }, "серия " + (st.streak || 0) + " · " + (st.streakDays || 0) + "/10"),
       X.flowActive ? h("span", { class: "chip flow" }, "ПОТОК ×1.25") : null,
       S.activeBoost("xp15") ? h("span", { class: "chip boost" }, "XP ×1.5") : null,
       S.activeBoost("g15") ? h("span", { class: "chip boost" }, "◆ ×1.5") : null,
