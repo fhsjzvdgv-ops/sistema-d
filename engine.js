@@ -224,6 +224,13 @@
     root.querySelectorAll(".tl, .dl").forEach((r) => {
       const tt = r.querySelector(".tl-t, .dl-t"); if (!tt) return;
       const body = r.querySelector(".tl-body, .dl-b"); body.style.cursor = "pointer";
+      const title = tt.textContent, TTt = window.SYSD.TT().tasks;
+      const base = Object.values(TTt).find((x) => !x.deleted && x.title === title);
+      const sm = body.querySelector("small");
+      if (base && base.cond && sm && !r.classList.contains("done")) {
+        const cls = S.ttClass(Object.assign({}, base, { id: base.id + "@" + S.today() }));
+        sm.textContent = (base.main ? "главное" : "бонус") + (cls && cls.r ? " · " + S.preview(cls.r, cls.p) : "") + " · " + base.cond;
+      }
       body.appendChild(h("div", { class: "tl-more" }, "подробнее ›"));
       body.addEventListener("click", () => S.taskCard(tt.textContent));
     });

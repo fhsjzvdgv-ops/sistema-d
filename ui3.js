@@ -165,7 +165,7 @@
       (b.steps || []).forEach((st) => {
         const tk = S.taskToday(st); if (tk.d) seen.add(tk.d.id); if (tk.u) seen.add(tk.u.id);
         const tm = hhmm(st.time) || hhmm(b.time), m = mins(tm), ev = tk.d && S.X.byId["tt-" + tk.d.id];
-        let sc = 10; if (m != null) { if (m <= nowM + 90 && m >= nowM - 60) sc = 50; else if (m < nowM) sc = 40; }
+        let sc = 60;
         items.push({ title: st.title, p: b.path, tag: "опора · " + b.name, time: tm, done: !!tk.d, doneText: ev ? "+" + ev.xp + " XP" : "✓", sc, sort: tm || "12:00",
           busy: tk.u && S.tt.busy[tk.u.id], onDo: tk.u ? () => S.FX.confirm("Готово?", st.title + " — " + prev((R().tt || {}).dailyStep || "E", b.path)).then((ok) => ok && S.ttComplete(tk.u)) : null });
       });
@@ -212,10 +212,10 @@
 
     const all = collectDay(), undone = all.filter((x) => !x.done), done = all.filter((x) => x.done);
     undone.sort((a, b) => (b.sc - a.sc) || String(a.sort).localeCompare(String(b.sort)));
-    const main = undone.slice(0, 5).sort((a, b) => String(a.sort).localeCompare(String(b.sort))), rest = undone.slice(5).sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
+    const main = undone.slice(0, 6).sort((a, b) => String(a.sort).localeCompare(String(b.sort))), rest = undone.slice(6).sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
     const list = h("div", { class: "dlist" }, main.map(rowEl));
     if (!main.length) list.appendChild(h("div", { class: "empty" }, S.tt.undone == null ? "Загружаю дела…" : "На сегодня всё сделано. Отдыхай без вины."));
-    root.appendChild(S.win("Главное на сегодня", "5 самых важных дел сейчас. Нажал «Готово» — опыт сразу.", list));
+    root.appendChild(S.win("Главное на сегодня", "6 главных дел — только они идут в серию. Делай когда удобно, отмечай до полуночи. Нажми на дело — откроется карточка.", list));
 
     if (rest.length || true) {
       const det = S.keep(h("details", { class: "dq" }), "rest-open");
