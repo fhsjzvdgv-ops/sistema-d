@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d0a24">
+<title>Система · Дарий</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0a24;--card:#17123a;--card2:#1f1850;--line:#2c2466;
+  --ink:#f2f0ff;--ink2:#a9a3d6;--acc:#7b63ff;--acc2:#9d88f3;
+  --xp:#04f17e;--warn:#ffb547;--bad:#ff5a7a;
+  --music:#ff7ad9;--body:#04f17e;--deals:#ffb547;--head:#4fc3ff;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink);font:15px/1.4 Inter,system-ui,sans-serif;padding:0 16px 96px;max-width:560px;margin:0 auto}
+h1{font-size:22px;font-weight:800}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin:22px 0 10px;font-weight:600}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.top{position:sticky;top:0;background:var(--bg);padding:14px 0 10px;z-index:5}
+.row{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.rank{font-weight:800;font-size:13px;padding:4px 10px;border-radius:99px;background:var(--acc);}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--xp));border-radius:99px;transition:width .4s}
+.small{font-size:12px;color:var(--ink2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.paths{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.path{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.path b{font-size:18px}
+.deed{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px}
+.deed .chk{width:28px;height:28px;border-radius:9px;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-weight:800}
+.deed.done{opacity:.55}
+.deed.done .chk{background:var(--xp);border-color:var(--xp);color:#0d0a24}
+.deed .t{font-weight:600}
+.deed .xp{font-weight:800;color:var(--xp);font-size:13px;flex:none}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.q{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;overflow:hidden}
+.q summary{list-style:none;padding:14px;cursor:pointer}
+.q summary::-webkit-details-marker{display:none}
+.q .steps{padding:0 14px 14px}
+.step{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:9px 0;border-top:1px solid var(--line)}
+.step .chk{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex:none;margin-top:1px;display:grid;place-items:center;font-size:12px;font-weight:800}
+.step.done .chk{background:var(--xp);border-color:var(--xp);color:#0d0a24}
+.step.done .t{text-decoration:line-through;color:var(--ink2)}
+.step.next{background:var(--card2);margin:0 -14px;padding:9px 14px;border-radius:0}
+.first{font-size:12px;color:var(--warn);margin-top:2px}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--card2);color:var(--ink2)}
+.nav{position:fixed;left:0;right:0;bottom:0;background:#0d0a24f2;border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 8px calc(8px + env(safe-area-inset-bottom));z-index:9}
+.nav button{flex:1;max-width:140px;padding:8px 0;border-radius:12px;font-size:12px;color:var(--ink2);font-weight:600}
+.nav button span{display:block;font-size:20px}
+.nav button.on{background:var(--card2);color:var(--ink)}
+.btn{background:var(--acc);border-radius:12px;padding:12px 16px;font-weight:700;width:100%}
+.btn.ghost{background:var(--card2)}
+input,textarea{font:inherit;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center}
+.vs .big{font-size:30px;font-weight:800}
+.lead{color:var(--xp)}
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%) translateY(-120%);background:var(--acc);padding:12px 18px;border-radius:14px;font-weight:700;z-index:20;transition:transform .3s;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.modal{position:fixed;inset:0;background:#000c;display:none;align-items:flex-end;z-index:30}
+.modal.show{display:flex}
+.sheet{background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+.sheet p{margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="top" id="top"></div>
+<main id="view"></main>
+<nav class="nav">
+  <button data-v="today" class="on"><span>⚡</span>Сегодня</button>
+  <button data-v="quests"><span>🗺</span>Квесты</button>
+  <button data-v="duel"><span>⚔️</span>Дуэль</button>
+  <button data-v="me"><span>👤</span>Я</button>
+</nav>
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script>
+// ---------- КОНТЕНТ ----------
+const PATHS={
+  music:{n:'Музыка',c:'var(--music)'},
+  body:{n:'Тело',c:'var(--body)'},
+  deals:{n:'Дела',c:'var(--deals)'},
+  head:{n:'Смелость',c:'var(--head)'}
+};
+const DAILIES=[
+  {id:'mus2',p:'music',t:'Музыка 2 часа (днём, пока дома тихо)',xp:40,first:'Открой ноут и проект. Первые 10 минут — просто покрути бит.'},
+  {id:'mus5',p:'music',t:'Марафон: 5 часов за ноутом',xp:60,first:'Засчитывай вместе с «2 часа». Это бонус за длинный присест.'},
+  {id:'train',p:'body',t:'Тренировка 30+ минут (дом или зал)',xp:35,first:'Начни с 10 отжиманий прямо сейчас — дальше пойдёт.'},
+  {id:'walk',p:'body',t:'Прогулка 30 минут',xp:15,first:'Наушники, кроссы, вышел.'},
+  {id:'brave',p:'head',t:'Одно смелое действие',xp:25,first:'Самое простое: спроси что-то у незнакомого (время, дорогу, совет продавца).'},
+  {id:'sweet',p:'head',t:'Без сладкого от скуки',xp:15,first:'Захотелось после еды — 20 приседаний и стакан воды. Потом решай.'},
+  {id:'brawl',p:'head',t:'Brawl Stars и ленты — не больше часа',xp:15,first:'Поставь таймер на 60 минут, когда открываешь.'},
+  {id:'sleep',p:'body',t:'Отбой до 00:00',xp:15,first:'В 23:30 телефон на зарядку подальше от кровати.'}
+];
+function mkAlbum(){
+  const s=[{t:'Решить вопрос с программой: купить FL Studio, перейти на бесплатную (Cakewalk / LMMS) или сохранять дорожки в WAV в конце каждой сессии',first:'Сегодня выбери один из трёх вариантов. Без этого прогресс теряется.',xp:60}];
+  for(let i=1;i<=8;i++){
+    s.push({t:`Трек ${i} · бит`,first:'Открой проект, накидай 8 тактов. Не нравится — всё равно сохрани.',xp:40});
+    s.push({t:`Трек ${i} · текст`,first:'Напиши 4 строчки. Любые. Потом поправишь.',xp:30});
+    s.push({t:`Трек ${i} · запись`,first:'Запиши один дубль куплета. Слушать будешь завтра.',xp:40});
+    s.push({t:`Трек ${i} · сведение`,first:'Выровняй громкость дорожек и всё. Это уже сведение.',xp:40});
+  }
+  s.push({t:'Порядок треков и название микстейпа',first:'Выпиши 8 названий в столбик и поменяй местами, пока не зайдёт.',xp:30});
+  s.push({t:'Релиз: выложить микстейп (цель — 1 декабря)',first:'Выбери, куда: SoundCloud, VK, Telegram-канал.',xp:150});
+  return s;
+}
+const QUESTS=[
+  {id:'army',p:'deals',t:'Военкомат к 23 октября',dl:'2026-10-23',boss:true,steps:[
+    {t:'Позвонить и узнать, готово ли направление',first:'Найди номер, набери. Это и смелое действие тоже.',xp:30},
+    {t:'Забрать направление на обследование',first:'Возьми паспорт и приписное.',xp:50},
+    {t:'Пройти обследование по направлению',first:'Узнай адрес и часы работы.',xp:60},
+    {t:'Собрать все бумаги в одну папку',first:'Сложи всё, что уже есть, в один файл/папку.',xp:30},
+    {t:'Пройти комиссию (23 октября или раньше)',first:'Накануне собери папку и ляг до 00:00.',xp:150}
+  ]},
+  {id:'album',p:'music',t:'Микстейп: 8 треков к 1 декабря',dl:'2026-12-01',steps:mkAlbum()},
+  {id:'work',p:'deals',t:'Работа: подработка офлайн',steps:[
+    {t:'Выбрать 3 вида работы: склад, курьер, бариста, сборщик…',first:'Выпиши три. Не думай долго.',xp:20},
+    {t:'Сделать аккаунт и резюме на hh.ru',first:'Регистрация + опыт: склад и официант. 20 минут.',xp:60},
+    {t:'10 откликов',first:'Сделай первые 3 прямо сейчас.',xp:50},
+    {t:'Ещё 20 откликов',first:'По 5 в день — 4 дня.',xp:50},
+    {t:'Сходить на первое собеседование',first:'Скажи, что готов выйти на смену хоть завтра.',xp:80},
+    {t:'Выйти на первую смену',first:'Ты уже победил. Просто приди вовремя.',xp:120}
+  ]},
+  {id:'debt',p:'deals',t:'Закрыть долги',steps:[
+    {t:'Отдать 200 ₽ брату',first:'Самая лёгкая победа. Перевод — 30 секунд.',xp:30},
+    {t:'Отдать 1500 ₽ Эдуарду',first:'Как появятся деньги — сразу, не откладывая.',xp:60}
+  ]},
+  {id:'push',p:'body',t:'Отжимания подряд',steps:[
+    {t:'20 подряд',first:'Каждый день 3 подхода до отказа.',xp:40},
+    {t:'25 подряд',first:'',xp:40},{t:'30 подряд',first:'',xp:50},
+    {t:'40 подряд',first:'',xp:60},{t:'50 подряд',first:'',xp:100}
+  ]},
+  {id:'pull',p:'body',t:'Подтягивания с нуля',steps:[
+    {t:'Купить абонемент в зал (или найти турник во дворе)',first:'Узнай цену в ближайшем зале.',xp:40},
+    {t:'Вис на турнике 30 секунд',first:'Просто повиси. 3 раза за тренировку.',xp:30},
+    {t:'5 медленных опусканий сверху (запрыгнул — опускайся 5 секунд)',first:'',xp:40},
+    {t:'1 чистое подтягивание',first:'',xp:80},
+    {t:'5 подтягиваний подряд',first:'',xp:120}
+  ]},
+  {id:'brave',p:'head',t:'Лестница смелости',steps:[
+    {t:'Спросить у прохожего время или дорогу',first:'Самая низкая ступенька. Просто спроси.',xp:20},
+    {t:'Заказать что-то голосом, а не через приложение',first:'Кофе, шаурма — что угодно.',xp:20},
+    {t:'Спросить совет у продавца в магазине',first:'«А какой лучше взять?»',xp:25},
+    {t:'Позвонить незнакомым по делу (магазин, зал, военкомат)',first:'Напиши на бумажке, что скажешь.',xp:30},
+    {t:'Сказать комплимент незнакомому (кассиру, бариста)',first:'«Классная футболка» — и всё.',xp:35},
+    {t:'Вернуть товар или попросить заменить',first:'',xp:35},
+    {t:'Записать трек, когда дома кто-то есть',first:'Скажи «я записываю, 10 минут» и пиши.',xp:50},
+    {t:'Дать послушать трек кому-то, кроме Эдуарда',first:'Отправь одному человеку. Реакцию не жди.',xp:60},
+    {t:'Пройти собеседование',first:'',xp:60},
+    {t:'Выложить трек публично',first:'',xp:100}
+  ]}
+];
+const PRAISE=['Красава!','Вот это темп!','Эдуард нервно курит в сторонке','Так держать, машина','Минус лень, плюс опыт','Ещё один кирпич в стену','Это было мощно','Растёшь на глазах','Чемпионский ход','Прошлый ты такого не делал'];
+const RANKS=[[1,'E'],[5,'D'],[10,'C'],[15,'B'],[20,'A'],[30,'S']];
+
+// ---------- СОСТОЯНИЕ ----------
+const KEY='sistema_dariy_v1';
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S)S={log:[],qs:{},rival:{name:'Эдуард',xp:0,bet:'Проигравший недели покупает пиццу'},cls:'Битмейкер',name:'Дарий',howto:false,bestStreak:0};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+const pad=n=>String(n).padStart(2,'0');
+const dk=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>dk(new Date());
+function weekStart(d=new Date()){const x=new Date(d);const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return dk(x)}
+const sum=a=>a.reduce((s,e)=>s+e.xp,0);
+const totalXP=()=>sum(S.log);
+const pathXP=p=>sum(S.log.filter(e=>e.p===p));
+const weekXP=()=>{const w=weekStart();return sum(S.log.filter(e=>e.d>=w))};
+// уровень n требует 50·n·(n−1) опыта
+const lvlOf=xp=>{let n=1;while(50*(n+1)*n<=xp)n++;return n};
+const lvlFloor=n=>50*n*(n-1);
+const rankOf=l=>{let r='E';for(const [m,x] of RANKS)if(l>=m)r=x;return r};
+function streak(){
+  const days=new Set(S.log.map(e=>e.d));let n=0;const d=new Date();
+  if(!days.has(dk(d)))d.setDate(d.getDate()-1);
+  while(days.has(dk(d))){n++;d.setDate(d.getDate()-1)}
+  return n;
+}
+const doneToday=id=>S.log.some(e=>e.d===today()&&e.id===id);
+const qStep=(q,i)=>(S.qs[q]||[]).includes(i);
+
+// ---------- ЭФФЕКТЫ ----------
+let ac;
+function ding(up){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=up?660:330;g.gain.setValueAtTime(.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.25);o.start();o.stop(ac.currentTime+.25);if(up){const o2=ac.createOscillator();o2.connect(g);o2.frequency.value=990;o2.start(ac.currentTime+.08);o2.stop(ac.currentTime+.25)}}catch(e){}}
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1800)}
+function award(entry){
+  const before=lvlOf(totalXP());S.log.push(entry);save();
+  const after=lvlOf(totalXP());
+  try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
+  ding(true);
+  if(after>before){setTimeout(()=>sheet(`<h1>Уровень ${after}!</h1><p class="small" style="margin:8px 0 16px">Ранг ${rankOf(after)}. ${after%5===0?'Новый ранг — скинь скрин Эдуарду.':'Ещё ступенька вверх.'}</p><button class="btn" onclick="closeSheet()">Погнали дальше</button>`),400)}
+  else toast(`+${entry.xp} XP · ${PRAISE[Math.floor(Math.random()*PRAISE.length)]}`);
+}
+function unaward(pred){const i=S.log.findIndex(pred);if(i>=0){S.log.splice(i,1);save();ding(false)}}
+function perfectCheck(){
+  const core=['mus2','train','brave','sweet','sleep'];
+  if(core.every(doneToday)&&!doneToday('perfect')){award({d:today(),id:'perfect',p:'head',xp:50,t:'Идеальный день'});toast('ИДЕАЛЬНЫЙ ДЕНЬ · +50 XP')}
+}
+
+// ---------- ЭКРАНЫ ----------
+let cur='today';
+function top(){
+  const xp=totalXP(),l=lvlOf(xp),a=lvlFloor(l),b=lvlFloor(l+1);
+  document.getElementById('top').innerHTML=`
+  <div class="row"><div><h1>${esc(S.name)} · ур. ${l}</h1><div class="small">${esc(S.cls)} · серия ${streak()} 🔥 · неделя ${weekXP()} XP</div></div><div class="sp"></div><div class="rank">РАНГ ${rankOf(l)}</div></div>
+  <div class="bar"><i style="width:${Math.round((xp-a)/(b-a)*100)}%"></i></div>
+  <div class="small" style="margin-top:4px">${xp-a} / ${b-a} до уровня ${l+1}</div>`;
+}
+function deedBtn(d){
+  const on=doneToday(d.id);
+  return `<button class="deed ${on?'done':''}" onclick="toggleDeed('${d.id}')">
+    <div class="chk">${on?'✓':''}</div>
+    <div class="sp"><div class="t"><span class="dot" style="background:${PATHS[d.p].c}"></span>${esc(d.t)}</div>${on?'':`<div class="first">▶ ${esc(d.first)}</div>`}</div>
+    <div class="xp">+${d.xp}</div></button>`;
+}
+function nextStep(q){const i=q.steps.findIndex((s,k)=>!qStep(q.id,k));return i}
+function daysLeft(dl){return Math.ceil((new Date(dl+'T23:59')-new Date())/864e5)}
+function vToday(){
+  const nDone=DAILIES.filter(d=>doneToday(d.id)).length;
+  let h='';
+  if(!S.log.some(e=>e.d===today()))h+=`<div class="card" style="border-color:var(--warn)"><b>Минимум дня:</b> сделай одно любое дело — и серия не сгорит.</div>`;
+  // главный квест — ближайший дедлайн
+  const boss=QUESTS.filter(q=>q.dl&&nextStep(q)>=0).sort((a,b)=>a.dl<b.dl?-1:1)[0];
+  if(boss){const i=nextStep(boss),s=boss.steps[i];
+    h+=`<h2>Главное сейчас</h2><div class="card"><div class="row"><b>${esc(boss.t)}</b><div class="sp"></div><span class="tag">${daysLeft(boss.dl)} дн.</span></div>
+    <div style="margin-top:8px">${esc(s.t)}</div>${s.first?`<div class="first">▶ ${esc(s.first)}</div>`:''}
+    <button class="btn" style="margin-top:12px" onclick="toggleStep('${boss.id}',${i})">Сделал · +${s.xp} XP</button></div>`}
+  h+=`<h2>Дела дня · ${nDone}/${DAILIES.length}</h2>`+DAILIES.map(deedBtn).join('');
+  h+=`<h2>Пути</h2><div class="paths">`+Object.entries(PATHS).map(([k,p])=>{const x=pathXP(k),l=lvlOf(x*2);return `<div class="path"><div class="small"><span class="dot" style="background:${p.c}"></span>${p.n}</div><b>ур. ${l}</b> <span class="small">${x} XP</span></div>`}).join('')+`</div>`;
+  h+=`<p class="small" style="margin-top:14px">Все 5 главных (музыка, тренировка, смелость, без сладкого, отбой) = идеальный день, +50 XP.</p>`;
+  return h;
+}
+function vQuests(){
+  return '<h2>Квесты</h2>'+QUESTS.map(q=>{
+    const n=(S.qs[q.id]||[]).length,nx=nextStep(q);
+    return `<details class="q" ${q.id===openQ?'open':''} ontoggle="if(this.open)openQ='${q.id}'"><summary>
+      <div class="row"><span class="dot" style="background:${PATHS[q.p].c}"></span><b class="sp">${esc(q.t)}</b>${q.dl&&nx>=0?`<span class="tag">${daysLeft(q.dl)} дн.</span>`:''}</div>
+      <div class="bar"><i style="width:${Math.round(n/q.steps.length*100)}%"></i></div>
+      <div class="small" style="margin-top:4px">${nx<0?'Пройден ✓':`${n} из ${q.steps.length} · дальше: ${esc(q.steps[nx].t)}`}</div></summary>
+      <div class="steps">${q.steps.map((s,i)=>{const on=qStep(q.id,i);return `<button class="step ${on?'done':''} ${i===nx?'next':''}" onclick="toggleStep('${q.id}',${i})"><div class="chk">${on?'✓':''}</div><div class="sp"><div class="t">${esc(s.t)}</div>${i===nx&&s.first?`<div class="first">▶ ${esc(s.first)}</div>`:''}</div><div class="xp small">+${s.xp}</div></button>`}).join('')}</div></details>`}).join('');
+}
+function vDuel(){
+  const me=weekXP(),r=+S.rival.xp||0;
+  const lead=me===r?'Ничья. Кто дожмёт?':me>r?`Ты впереди на ${me-r} XP`:`${esc(S.rival.name)} впереди на ${r-me} XP. Догоняй.`;
+  return `<h2>Дуэль недели</h2><div class="card"><div class="vs">
+    <div><div class="small">${esc(S.name)}</div><div class="big ${me>r?'lead':''}">${me}</div></div><div class="small">VS</div>
+    <div><div class="small">${esc(S.rival.name)}</div><div class="big ${r>me?'lead':''}">${r}</div></div></div>
+    <p style="text-align:center;margin-top:10px;font-weight:700">${lead}</p>
+    <p class="small" style="text-align:center">Неделя кончается в воскресенье в 23:59</p></div>
+    <div class="card"><div class="small">Ставка недели</div><input id="bet" value="${esc(S.rival.bet)}" onchange="S.rival.bet=this.value;save()"></div>
+    <div class="card"><div class="small" style="margin-bottom:6px">Сколько XP за неделю у ${esc(S.rival.name)} (спроси или посмотри у него)</div>
+    <input type="number" inputmode="numeric" value="${r||''}" onchange="S.rival.xp=+this.value;save();render()"></div>
+    <button class="btn" onclick="shareWeek()">Отправить свой счёт сопернику</button>
+    <h2>Против прошлого себя</h2><div class="card">${pastMe()}</div>`;
+}
+function pastMe(){
+  const w=weekStart(),pw=new Date(w+'T12:00');pw.setDate(pw.getDate()-7);const pwk=dk(pw);
+  const last=sum(S.log.filter(e=>e.d>=pwk&&e.d<w)),now=weekXP();
+  return `Прошлая неделя: <b>${last}</b> XP · эта: <b>${now}</b> XP<br><span class="small">${now>last?'Ты уже сильнее себя прошлого 💪':`До рекорда прошлого себя: ${last-now} XP`}</span><br><span class="small">Лучшая серия: ${Math.max(S.bestStreak,streak())} дн.</span>`;
+}
+function vMe(){
+  const by={};S.log.forEach(e=>{by[e.d]=(by[e.d]||0)+e.xp});
+  const days=Object.keys(by).sort().reverse().slice(0,7);
+  return `<h2>Профиль</h2><div class="card grid2">
+    <div><div class="small">Имя</div><input value="${esc(S.name)}" onchange="S.name=this.value;save();render()"></div>
+    <div><div class="small">Класс</div><input value="${esc(S.cls)}" onchange="S.cls=this.value;save();render()"></div>
+    <div><div class="small">Соперник</div><input value="${esc(S.rival.name)}" onchange="S.rival.name=this.value;save();render()"></div></div>
+    <h2>Последние дни</h2><div class="card">${days.length?days.map(d=>`<div class="row"><span>${d.slice(8)}.${d.slice(5,7)}</span><div class="sp"></div><b>${by[d]} XP</b></div>`).join(''):'<span class="small">Пока пусто. Сделай первое дело.</span>'}</div>
+    <h2>Резервная копия</h2><div class="card"><p class="small">Всё хранится только в этом телефоне. Раз в неделю жми «Скачать копию» — если почистишь браузер, восстановишь из файла.</p>
+    <div class="grid2"><button class="btn ghost" onclick="exportData()">Скачать копию</button><button class="btn ghost" onclick="document.getElementById('imp').click()">Загрузить копию</button></div>
+    <input type="file" id="imp" accept=".json,application/json" class="hidden" onchange="importData(this.files[0])"></div>
+    <button class="btn ghost" style="margin-top:6px" onclick="howTo()">Как играть</button>`;
+}
+let openQ=null;
+function render(){
+  top();
+  document.getElementById('view').innerHTML={today:vToday,quests:vQuests,duel:vDuel,me:vMe}[cur]();
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===cur));
+  S.bestStreak=Math.max(S.bestStreak||0,streak());
+}
+
+// ---------- ДЕЙСТВИЯ ----------
+function toggleDeed(id){
+  const d=DAILIES.find(x=>x.id===id);
+  if(doneToday(id))unaward(e=>e.d===today()&&e.id===id);
+  else{award({d:today(),id,p:d.p,xp:d.xp,t:d.t});perfectCheck()}
+  render();
+}
+function toggleStep(qid,i){
+  const q=QUESTS.find(x=>x.id===qid),s=q.steps[i],arr=S.qs[qid]=S.qs[qid]||[];
+  const key=`q:${qid}:${i}`;
+  if(arr.includes(i)){arr.splice(arr.indexOf(i),1);unaward(e=>e.id===key)}
+  else{arr.push(i);award({d:today(),id:key,p:q.p,xp:s.xp,t:s.t});
+    if(arr.length===q.steps.length){award({d:today(),id:`qdone:${qid}`,p:q.p,xp:q.boss?300:150,t:'Квест пройден: '+q.t});setTimeout(()=>sheet(`<h1>Квест пройден!</h1><p style="margin:8px 0 16px">${esc(q.t)}<br><b class="lead">+${q.boss?300:150} XP</b></p><button class="btn" onclick="closeSheet()">Забрать</button>`),500)}}
+  openQ=qid;save();render();
+}
+function shareWeek(){
+  const t=`${S.name} · неделя: ${weekXP()} XP · ур. ${lvlOf(totalXP())} (ранг ${rankOf(lvlOf(totalXP()))}) · серия ${streak()} 🔥\nСтавка: ${S.rival.bet}`;
+  if(navigator.share)navigator.share({text:t}).catch(()=>{});
+  else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Скопировано — вставь в Telegram')}
+}
+function exportData(){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));
+  a.download=`sistema-${today()}.json`;a.click();toast('Копия скачана');
+}
+function importData(f){
+  if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.log))throw 0;S=x;save();render();toast('Восстановлено')}catch(e){toast('Это не тот файл')}};
+  r.readAsText(f);
+}
+function sheet(h){document.getElementById('sheet').innerHTML=h;document.getElementById('modal').classList.add('show')}
+function closeSheet(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeSheet()};
+function howTo(){
+  sheet(`<h1>Как играть</h1><div style="margin-top:12px">
+  <p>⚡ <b>Сегодня</b> — дела дня. Сделал — тапнул — получил опыт. Ошибся — тапни ещё раз.</p>
+  <p>▶ Жёлтая строчка под делом — <b>первый шаг</b>. Не знаешь, с чего начать — делай её.</p>
+  <p>🔥 <b>Серия</b> — дни подряд, где сделано хоть одно дело. Минимум дня — одно дело.</p>
+  <p>🗺 <b>Квесты</b> — большие цели по шагам: военкомат, микстейп, работа, тело, смелость.</p>
+  <p>⚔️ <b>Дуэль</b> — неделя против Эдуарда и против себя прошлого. Ставка — на твой выбор.</p>
+  <p>💾 Данные живут в телефоне. Раз в неделю — «Скачать копию» во вкладке «Я».</p>
+  <p class="small">Штрафов нет. Упал — встал, серия начнётся заново.</p></div>
+  <button class="btn" onclick="S.howto=true;save();closeSheet()">Понял, погнали</button>`);
+}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{cur=b.dataset.v;render();scrollTo(0,0)});
+render();
+if(!S.howto)howTo();
+</script>
+</body>
+</html>
