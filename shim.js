@@ -15,18 +15,19 @@
     clearTimeout(cloudT);
     cloudT = setTimeout(() => {
       const db = {}; Object.keys(DB).forEach((k) => { if (k.indexOf("codex/") !== 0) db[k] = DB[k]; });
-      fetch(CLOUD, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ app: "sistema-dariy", at: Date.now(), db, tt: TTS }) }).catch(() => {});
+      fetch(CLOUD, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ app: "sistema-dariy", at: DB._at || Date.now(), db, tt: TTS }) }).catch(() => {});
     }, 30000);
   }
   let saveT = 0;
-  function persist() {
+  function persist(mark) {
+    if (mark !== false) DB._at = Date.now();
     clearTimeout(saveT);
     saveT = setTimeout(() => {
       try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {}
     }, 150);
     cloudSave();
   }
-  window.addEventListener("pagehide", () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {} });
+  window.addEventListener("pagehide", () => { if (window.__noSave) return; try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {} });
 
   /* ---------- посев контента ---------- */
   function init() {
@@ -41,13 +42,25 @@
     if (DB._seedV !== SEED.v) { const st = DB["game/state"]; st.dailies = SEED.game.state.dailies; }
     SEED.tasks.forEach((t) => { if (!TTS.tasks[t.id] || DB._seedV !== SEED.v) TTS.tasks[t.id] = Object.assign({}, TTS.tasks[t.id] || {}, t, TTS.tasks[t.id] && TTS.tasks[t.id].completedTime ? { completedTime: TTS.tasks[t.id].completedTime } : {}); });
     DB._seedV = SEED.v;
-    persist();
+    persist(false);
   }
   }
-  const ready = (fresh && !LOCAL ? Promise.race([
-    fetch(CLOUD, { cache: "no-store" }).then((r) => r.text()).then((t) => { const x = JSON.parse(t); if (x && x.app === "sistema-dariy" && x.db) { DB = x.db; TTS = x.tt || TTS; } }).catch(() => {}),
+  const evN = (db) => Object.keys(db || {}).filter((k) => k.indexOf("ev/") === 0).length;
+  function newer(x) {
+    if (!x || x.app !== "sistema-dariy" || !x.db) return false;
+    if (DB._at) return (x.at || 0) > DB._at + 1000;
+    return evN(x.db) > evN(DB);   // старая версия без отметки времени — берём ту, где больше событий
+  }
+  function pull() { return fetch(CLOUD, { cache: "no-store" }).then((r) => r.text()).then((t) => JSON.parse(t)); }
+  const ready = (!LOCAL ? Promise.race([
+    pull().then((x) => { if (newer(x)) { DB = x.db; TTS = x.tt || TTS; DB._at = x.at; } else if (!DB._at && evN(DB)) { DB._at = Date.now(); } }).catch(() => {}),
     new Promise((r) => setTimeout(r, 6000))
   ]) : Promise.resolve()).then(init);
+  // пока страница открыта: раз в 2 минуты сверяемся с облаком, новее — подтягиваем
+  if (!LOCAL) setInterval(() => {
+    if (document.querySelector(".mback")) return;
+    pull().then((x) => { if (newer(x)) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign({}, x.db, { _at: x.at }))); localStorage.setItem(TKEY, JSON.stringify(x.tt || TTS)); } catch (e) {} window.__noSave = true; location.reload(); } }).catch(() => {});
+  }, 120000);
 
   /* ---------- база ---------- */
   const clone = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
