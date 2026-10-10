@@ -130,6 +130,24 @@
   const tick0 = S.tick;
   S.tick = function () { tick0.apply(this, arguments); S.localEvening(); };
 
+
+  /* ---------- пруфы: перед зачётом скинуть подтверждение Эдуарду в Telegram ---------- */
+  const TG = "https://t.me/kurayg";
+  const ttc0 = S.ttComplete;
+  S.ttComplete = function (task) {
+    const base = task && window.SYSD.TT().tasks[String(task.id).split("@")[0]];
+    if (!base || !base.proof) return ttc0(task);
+    return new Promise((res) => {
+      let m;
+      m = S.FX.modal([h("div", { class: "m-sys" }, "ПРУФ"), h("div", { class: "m-t" }, base.title),
+        h("div", { class: "m-x" }, h("span", { class: "lbl" }, "Скинь Эдуарду в Telegram"), base.proof),
+        h("div", { class: "m-x muted" }, "Без пруфа не засчитывается — так честно для дуэли."),
+        h("div", { class: "m-btns" },
+          h("a", { class: "btn ghost", href: TG, target: "_blank", rel: "noopener" }, "Открыть Telegram"),
+          h("button", { class: "btn", type: "button", onclick: () => { m.close(); ttc0(task).then(res); } }, "Скинул — засчитать"))],
+        { cls: "sheet", onClose: () => res(false) });
+    });
+  };
   /* ---------- шаги квестов навыков (вместо чеклиста TickTick) ---------- */
   S.questStep = function (q) {
     const TT = window.SYSD.TT(), task = TT.tasks[q._id] || {}, items = task.items || [];
@@ -199,6 +217,7 @@
       base && base.repeatFlag ? "Повторяется каждый день. Засчитывается за день, если отметил до 23:59." : "Разовое дело: отметил — закрыто.",
       blk ? "Главное дело — идёт в серию. Серия считается десятками дней; сейчас нужно " + S.minNeed() + " из 6 главных в день." : "Не главное дело: даёт опыт и золото, но в серию не идёт.",
       blk ? "Все 6 главных за день = «идеальный день» и бонус." : null,
+      base && base.proof ? "Пруф: " + base.proof + " — скинуть Эдуарду в Telegram перед зачётом." : null,
       "Не набрал главных дел: −30 XP, −50 ◆ и 30 отжиманий в долг, десятка серии заново (один выходной в неделю прощается).",
       skDef ? "Прокачивает навык «" + skDef.name + "»" + (skSt && skSt.active ? " — дней практики " + (skSt.days || 0) + " из 21." : ". Возьми его в «Навыках», чтобы дни шли в зачёт ступени.") : null
     ].filter(Boolean);
@@ -234,7 +253,7 @@
       const sm = body.querySelector("small");
       if (base && base.cond && sm && !r.classList.contains("done")) {
         const cls = S.ttClass(Object.assign({}, base, { id: base.id + "@" + S.today() }));
-        sm.textContent = (base.main ? "главное" : base.repeatFlag ? "бонус" : "разовое") + (cls && cls.r ? " · " + S.preview(cls.r, cls.p) : "") + " · " + base.cond;
+        sm.textContent = (base.main ? "главное" : base.repeatFlag ? "бонус" : "разовое") + (cls && cls.r ? " · " + S.preview(cls.r, cls.p) : "") + " · " + base.cond + (base.proof ? " · 📎 нужен пруф" : "");
       }
       body.appendChild(h("div", { class: "tl-more" }, "подробнее ›"));
       const tagT = (body.querySelector("small") || {}).textContent || ""; body.addEventListener("click", () => S.taskCard(tt.textContent, tagT));

@@ -607,3 +607,6 @@ body[data-view=today] .hud-main, body[data-view=today] .hud-xp, body[data-view=t
 .duel summary{display:grid;grid-template-columns:1fr 56px 56px;align-items:center;gap:6px}
 .duel summary b{text-align:center}
 .duel b.win{color:#5DD39E}
+.rp{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rp-col b{display:block;margin-bottom:2px}
+@media (max-width:420px){.rp{grid-template-columns:1fr}}
