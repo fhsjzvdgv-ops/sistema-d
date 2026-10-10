@@ -55,7 +55,6 @@
       h("div", { class: "muted" }, (d.ok ? "✓ в серию" : "✗ не в серию") + " · главных " + (d.main != null ? d.main : "—") + " · +" + xp + " XP"),
       d.items.length ? h("ul", { class: "conds" }, d.items.map((x) => h("li", null, x.t))) : h("div", { class: "muted" }, "ничего не отмечено"));
   }
-  const PUN = ["Пицца за счёт проигравшего", "50 отжиманий при победителе", "Задание от победителя", "Кальян за счёт проигравшего", "Проигравший убирает после посиделок", "Неделю называть победителя «босс»"];
   V.duel = function (root) {
     S.duelSync();
     const me = S.duelMine(), ws = me.week;
@@ -85,8 +84,10 @@
       rep.appendChild(det);
     });
     root.appendChild(S.win("Отчёт по дням", "Кто что сделал за последние 7 дней. ✓ — день в серию.", rep));
-    const out = h("div", { class: "m-t" }, "");
-    root.appendChild(S.win("Наказание проигравшему", "В воскресенье вечером проигравший крутит рулетку", out,
-      h("button", { class: "btn wide", type: "button", onclick: () => { let i = 0; const n = 16 + Math.floor(Math.random() * PUN.length); const go = () => { out.textContent = PUN[i % PUN.length]; S.FX.sound(i >= n ? "level" : "tick"); if (i++ < n) setTimeout(go, 60 + i * 12); }; go(); } }, "Крутить рулетку")));
+    const sunday = S.dow(S.today()) === 6;
+    const lead = !r ? null : a > b ? me.name : b > a ? rn : null;
+    root.appendChild(S.win("Ставка недели", "Проигравший недели покупает пиццу или табак на кальян. Что именно — выбирает победитель.",
+      h("div", { class: "m-t" }, !r ? "Счёт появится, когда придут цифры соперника" : lead ? (sunday ? "Итог недели: покупает " + (lead === me.name ? rn : me.name) : "Сейчас покупал бы: " + (lead === me.name ? rn : me.name)) : "Пока ничья — никто не покупает"),
+      h("div", { class: "muted" }, "Неделя закрывается в воскресенье в 23:59. Ничья — никто не покупает.")));
   };
 })();
