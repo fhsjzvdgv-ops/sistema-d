@@ -305,18 +305,4 @@
     root.querySelectorAll("button").forEach((b) => { if (/Сбросить разбивку/.test(b.textContent)) b.remove(); });
   };
 
-  /* ---------- резервная копия в Меню ---------- */
-  const more0 = V.more;
-  V.more = function (root) {
-    more0(root);
-    const inp = h("input", { type: "file", accept: ".json,application/json", hidden: true, onchange: (e) => {
-      const f = e.target.files[0]; if (!f) return; const r = new FileReader();
-      r.onload = () => { try { window.SYSD.importAll(r.result); location.reload(); } catch (x) { S.FX.toast("[ СИСТЕМА ] Это не файл копии игры"); } };
-      r.readAsText(f);
-    } });
-    root.appendChild(S.win("Резервная копия", "Вся игра хранится только в этом телефоне. Раз в неделю скачивай копию — если почистишь браузер, восстановишь из файла.",
-      h("div", { class: "m-btns" },
-        h("button", { class: "btn", type: "button", onclick: () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([window.SYSD.exportAll()], { type: "application/json" })); a.download = "sistema-dariy-" + S.today() + ".json"; a.click(); S.FX.toast("[ СИСТЕМА ] Копия скачана"); } }, "Скачать копию"),
-        h("button", { class: "btn ghost", type: "button", onclick: () => inp.click() }, "Загрузить копию")), inp));
-  };
 })();

@@ -5,17 +5,31 @@
   let DB = {}, TTS = { tasks: {}, comp: {} };
   try { DB = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { DB = {}; }
   try { TTS = JSON.parse(localStorage.getItem(TKEY)) || TTS; } catch (e) {}
+  /* ---------- облачная копия: сохраняется сама, восстанавливается сама ---------- */
+  const CLOUD = "https://textdb.dev/api/data/e70f9805-330d-4735-8cec-187972f073c2-dariy-save";
+  const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const fresh = !localStorage.getItem(KEY);
+  let cloudT = 0;
+  function cloudSave() {
+    if (LOCAL) return;
+    clearTimeout(cloudT);
+    cloudT = setTimeout(() => {
+      const db = {}; Object.keys(DB).forEach((k) => { if (k.indexOf("codex/") !== 0) db[k] = DB[k]; });
+      fetch(CLOUD, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ app: "sistema-dariy", at: Date.now(), db, tt: TTS }) }).catch(() => {});
+    }, 30000);
+  }
   let saveT = 0;
   function persist() {
     clearTimeout(saveT);
     saveT = setTimeout(() => {
-      try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); }
-      catch (e) { alert("Память телефона для игры переполнена. Сделай резервную копию в Меню."); }
+      try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {}
     }, 150);
+    cloudSave();
   }
   window.addEventListener("pagehide", () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {} });
 
   /* ---------- посев контента ---------- */
+  function init() {
   const SEED = window.SEED;
   if (SEED) {
     Object.keys(SEED.codex).forEach((id) => (DB["codex/" + id] = SEED.codex[id]));
@@ -29,6 +43,11 @@
     DB._seedV = SEED.v;
     persist();
   }
+  }
+  const ready = (fresh && !LOCAL ? Promise.race([
+    fetch(CLOUD, { cache: "no-store" }).then((r) => r.text()).then((t) => { const x = JSON.parse(t); if (x && x.app === "sistema-dariy" && x.db) { DB = x.db; TTS = x.tt || TTS; } }).catch(() => {}),
+    new Promise((r) => setTimeout(r, 6000))
+  ]) : Promise.resolve()).then(init);
 
   /* ---------- база ---------- */
   const clone = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
@@ -149,5 +168,5 @@
     importAll: (txt) => { const x = JSON.parse(txt); if (x.app !== "sistema-dariy" || !x.db) throw new Error("bad"); localStorage.setItem(KEY, JSON.stringify(x.db)); localStorage.setItem(TKEY, JSON.stringify(x.tt || { tasks: {}, comp: {} })); }
   };
   const caps = { db, mcp };
-  window.claude = { use: (name) => Promise.resolve(caps[name] || null) };
+  window.claude = { use: (name) => ready.then(() => caps[name] || null) };
 })();
