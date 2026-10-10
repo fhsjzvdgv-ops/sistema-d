@@ -60,20 +60,31 @@
     S.duelSync();
     const me = S.duelMine(), ws = me.week;
     const r = rival && rival.week === ws ? rival : null, rn = (rival && rival.name) || "Эдуард";
+    const meN = me.name;
     let a = 0, b = 0;
-    const box = h("div", { class: "duel" });
-    box.appendChild(h("div", { class: "duel-h" }, h("span", null, me.name), h("span", null, "VS"), h("span", null, rn)));
-    DISC.forEach(([k, n, how, u]) => {
-      const x = me[k], y = r && r[k] != null ? r[k] : null;
+    const rows = DISC.map(([k, n, how, u]) => {
+      u = u || ""; const x = me[k], y = r && r[k] != null ? r[k] : null, mx = Math.max(x || 0, y || 0, 1);
       if (y != null) { if (x > y) a++; else if (y > x) b++; }
-      const det = h("details", { class: "kn" });
-      det.appendChild(h("summary", null, h("span", { class: "dl-n" }, n), h("b", { class: y != null && x > y ? "win" : "" }, x + u), h("b", { class: y != null && y > x ? "win" : "" }, y == null ? "—" : y + u)));
-      det.appendChild(h("div", { class: "body" }, how));
-      box.appendChild(det);
+      const wa = y != null && x > y, wb = y != null && y > x;
+      const hw = h("div", { class: "vs-how", hidden: true }, how);
+      const row = h("button", { class: "vs-row", type: "button", onclick: () => { hw.hidden = !hw.hidden; } },
+        h("div", { class: "vs-l" }, n),
+        h("div", { class: "vs-line" },
+          h("b", { class: "vs-a" + (wa ? " won" : "") }, x + u),
+          h("span", { class: "vs-bar a" }, h("i", { class: wa ? "won" : "", style: { width: Math.round(100 * (x || 0) / mx) + "%" } })),
+          h("span", { class: "vs-bar b" }, h("i", { class: wb ? "won" : "", style: { width: y == null ? "0%" : Math.round(100 * y / mx) + "%" } })),
+          h("b", { class: "vs-b" + (wb ? " won" : "") }, y == null ? "—" : y + u)));
+      return [row, hw];
     });
-    const verdict = !r ? "Ждём цифры соперника — обновляются сами" : a === b ? "Ничья " + a + ":" + b : (a > b ? "Ты ведёшь " : rn + " ведёт ") + Math.max(a, b) + ":" + Math.min(a, b);
-    root.appendChild(S.win("Дуэль недели", "Сравнивается доля от своего плана, а не голые цифры — у вас разные игры. Нажми на строку — увидишь, как считается.", h("div", { class: "m-t" }, verdict), box,
-      h("div", { class: "muted" }, "Ничего вносить не надо: отмечаешь дела — цифры уходят сами. " + (rival ? "Данные соперника: " + S.fmtDay(new Date(rival.at).toISOString().slice(0, 10)) + ", " + S.fmtTime(rival.at) + "." : "") + (err ? " " + err : ""))));
+    const verdict = !r ? "Ждём цифры соперника — придут сами" : a === b ? "Пока ничья" : a > b ? meN + " впереди" : rn + " впереди";
+    const board = h("div", { class: "vs" },
+      h("div", { class: "vs-top" },
+        h("div", { class: "vs-p" + (r && a > b ? " lead" : "") }, h("small", null, meN), h("b", { class: "vs-s" }, r ? String(a) : "–")),
+        h("div", { class: "vs-mid" }, ":"),
+        h("div", { class: "vs-p" + (r && b > a ? " lead" : "") }, h("small", null, rn), h("b", { class: "vs-s" }, r ? String(b) : "–"))),
+      h("div", { class: "vs-v" }, verdict), rows);
+    root.appendChild(S.win("Дуэль недели", "Доля от своего плана, неделя до вс 23:59. Нажми на строку — как считается.", board,
+      h("div", { class: "muted vs-note" }, (rival ? "Данные соперника: " + S.fmtTime(rival.at) + ". " : "") + "Ничего вносить не надо — цифры уходят сами." + (err ? " " + err : ""))));
     // отчёт по дням
     const rep = h("div");
     const rd = (rival && rival.days) || {};
