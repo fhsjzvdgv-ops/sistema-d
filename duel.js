@@ -36,7 +36,8 @@
   S.duelSync = function (force) {
     if (!S.X) return;
     const now = Date.now();
-    if (force || now - lastPush > 10 * 60000) {
+    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    if (!local && (force || now - lastPush > 10 * 60000)) {
       lastPush = now;
       fetch(BOX + ME, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(S.duelMine()) }).catch(() => {});
     }
