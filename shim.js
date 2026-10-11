@@ -45,21 +45,44 @@
     persist(false);
   }
   }
-  const evN = (db) => Object.keys(db || {}).filter((k) => k.indexOf("ev/") === 0).length;
-  function newer(x) {
+  /* слияние с облаком: события и отметки только складываются (ничего не теряется), снятые — помечаются */
+  function mergeIn(x) {
     if (!x || x.app !== "sistema-dariy" || !x.db) return false;
-    if (DB._at) return (x.at || 0) > DB._at + 1000;
-    return evN(x.db) > evN(DB);   // старая версия без отметки времени — берём ту, где больше событий
+    const c = x.db, ct = x.tt || { tasks: {}, comp: {} };
+    const del = Object.assign({}, c._del || {}, DB._del || {}), tdel = Object.assign({}, ct._del || {}, TTS._del || {});
+    let got = false;
+    Object.keys(c).forEach((k) => { if (k.indexOf("ev/") === 0 && !DB[k] && !del[k]) { DB[k] = c[k]; got = true; } });
+    Object.keys(del).forEach((k) => { delete DB[k]; });
+    const cloudNewer = (x.at || 0) > (DB._at || 0);
+    Object.keys(c).forEach((k) => {
+      if (k.indexOf("ev/") === 0 || k.indexOf("codex/") === 0 || k[0] === "_") return;
+      if (k === "game/ledger") {
+        const L = DB[k] || {}, R = c[k] || {}, U = (a, b) => Object.assign({}, b || {}, a || {});
+        DB[k] = Object.assign({}, cloudNewer ? R : L, { start: [L.start, R.start].filter(Boolean).sort()[0], done: U(L.done, R.done), dayOffs: U(L.dayOffs, R.dayOffs), pd: U(L.pd, R.pd), streakB: Array.from(new Set([].concat(L.streakB || [], R.streakB || []))), trials: Array.from(new Set([].concat(L.trials || [], R.trials || []))) });
+      } else if (k === "game/player") {
+        DB[k] = Object.assign({}, cloudNewer ? Object.assign({}, DB[k], c[k]) : Object.assign({}, c[k], DB[k]), { duelSpins: Object.assign({}, (c[k] || {}).duelSpins || {}, (DB[k] || {}).duelSpins || {}) });
+      } else if (!DB[k] || cloudNewer) { if (JSON.stringify(DB[k]) !== JSON.stringify(c[k])) { DB[k] = c[k]; if (!cloudNewer) got = true; } }
+    });
+    Object.keys(ct.comp || {}).forEach((id) => { if (!TTS.comp[id] && !tdel[id]) { TTS.comp[id] = ct.comp[id]; got = true; } });
+    Object.keys(tdel).forEach((id) => { delete TTS.comp[id]; });
+    Object.keys(ct.tasks || {}).forEach((id) => {
+      const a = TTS.tasks[id], b = ct.tasks[id];
+      if (!a) { TTS.tasks[id] = b; got = true; return; }
+      if (b.completedTime && !a.completedTime && !tdel[id]) { a.completedTime = b.completedTime; got = true; }
+      if (b.deleted && !a.deleted) { a.deleted = true; got = true; }
+    });
+    DB._del = del; TTS._del = tdel; DB._at = Math.max(DB._at || 0, x.at || 0);
+    return got;
   }
   function pull() { return fetch(CLOUD, { cache: "no-store" }).then((r) => r.text()).then((t) => JSON.parse(t)); }
   const ready = (!LOCAL ? Promise.race([
-    pull().then((x) => { if (newer(x)) { DB = x.db; TTS = x.tt || TTS; DB._at = x.at; } else if (!DB._at && evN(DB)) { DB._at = Date.now(); } }).catch(() => {}),
+    pull().then((x) => { mergeIn(x); }).catch(() => {}),
     new Promise((r) => setTimeout(r, 6000))
-  ]) : Promise.resolve()).then(init);
-  // пока страница открыта: раз в 2 минуты сверяемся с облаком, новее — подтягиваем
+  ]) : Promise.resolve()).then(() => { init(); if (!LOCAL) cloudSave(); });
+  // пока страница открыта: раз в 2 минуты сливаемся с облаком; пришло новое — перезагрузка
   if (!LOCAL) setInterval(() => {
     if (document.querySelector(".mback")) return;
-    pull().then((x) => { if (newer(x)) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign({}, x.db, { _at: x.at }))); localStorage.setItem(TKEY, JSON.stringify(x.tt || TTS)); } catch (e) {} window.__noSave = true; location.reload(); } }).catch(() => {});
+    pull().then((x) => { if (mergeIn(x)) { try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {} window.__noSave = true; location.reload(); } else cloudSave(); }).catch(() => {});
   }, 120000);
 
   /* ---------- база ---------- */
@@ -94,9 +117,9 @@
     return {
       id: path.split("/").pop(),
       get: () => Promise.resolve(snapDoc(path)),
-      set: (d) => { DB[path] = clone(d); persist(); emit(path); return Promise.resolve(); },
+      set: (d) => { DB[path] = clone(d); if (DB._del && DB._del[path]) delete DB._del[path]; persist(); emit(path); return Promise.resolve(); },
       update: (d) => { DB[path] = deepMerge(DB[path], clone(d)); persist(); emit(path); return Promise.resolve(); },
-      delete: () => { delete DB[path]; persist(); emit(path); return Promise.resolve(); },
+      delete: () => { delete DB[path]; if (path.indexOf("ev/") === 0) { DB._del = DB._del || {}; DB._del[path] = Date.now(); } persist(); emit(path); return Promise.resolve(); },
       onSnapshot: (cb) => { (docL[path] = docL[path] || []).push(cb); setTimeout(() => cb(snapDoc(path)), 0); return () => { docL[path] = docL[path].filter((x) => x !== cb); }; }
     };
   }
@@ -159,7 +182,7 @@
         if (!t) return Promise.reject({ code: "tool_error", message: "нет такой задачи" });
         const rec = Object.assign(inst(t, id.indexOf("@") > 0 ? id.split("@")[1] : day(nowISO())), { id, completedTime: nowISO() });
         if (id.indexOf("@") < 0) { rec.id = base; rec.startDate = t.startDate || null; t.completedTime = rec.completedTime; }
-        TTS.comp[rec.id] = rec; persist(); fireAll();
+        TTS.comp[rec.id] = rec; if (TTS._del && TTS._del[rec.id]) delete TTS._del[rec.id]; persist(); fireAll();
         return Promise.resolve({ payload: { ok: true } });
       }
       if (tool === "create_task") {
@@ -175,7 +198,7 @@
   /* ---------- служебное для движка ---------- */
   window.SYSD = {
     DB: () => DB, TT: () => TTS, persist, fireAll, emit,
-    undo: (id) => { const rec = TTS.comp[id]; if (!rec) return; delete TTS.comp[id]; const t = TTS.tasks[id]; if (t) delete t.completedTime; persist(); fireAll(); },
+    undo: (id) => { const rec = TTS.comp[id]; if (!rec) return; delete TTS.comp[id]; TTS._del = TTS._del || {}; TTS._del[id] = Date.now(); const t = TTS.tasks[id]; if (t) delete t.completedTime; persist(); fireAll(); },
     delTask: (id) => { const t = TTS.tasks[id]; if (t) { t.deleted = true; persist(); fireAll(); } },
     exportAll: () => JSON.stringify({ app: "sistema-dariy", at: Date.now(), db: DB, tt: TTS }),
     importAll: (txt) => { const x = JSON.parse(txt); if (x.app !== "sistema-dariy" || !x.db) throw new Error("bad"); localStorage.setItem(KEY, JSON.stringify(x.db)); localStorage.setItem(TKEY, JSON.stringify(x.tt || { tasks: {}, comp: {} })); }
