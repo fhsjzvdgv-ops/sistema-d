@@ -663,3 +663,9 @@ body[data-view=today] .hud-main, body[data-view=today] .hud-xp, body[data-view=t
 .vs3-v.won{color:var(--good)}
 .vs3 .vs-bar{display:block}
 .rp{grid-template-columns:1fr !important}
+
+/* дерево навыков: подписи не слипаются, линии не режут текст */
+.tn-n { max-width: 100%; -webkit-line-clamp: 3; overflow-wrap: anywhere; hyphens: auto; background: var(--abyss); padding: 1px 3px; border-radius: 4px; position: relative; z-index: 1; }
+.tn.narrow .tn-c { width: 40px; height: 40px; font-size: 15px; }
+.tn.narrow .tn-n { font-size: 9.5px; letter-spacing: -.01em; }
+.tn-pips { position: relative; z-index: 1; }

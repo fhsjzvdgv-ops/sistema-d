@@ -28,7 +28,7 @@
     const tr = S.treeOf(p.key), cx = S.D.codex[p.key];
     if (!tr || !cx || !cx.skills) return h("div", { class: "empty" }, "Загружается…");
     const byId = {}; cx.skills.forEach((sk) => (byId[sk.id] = sk));
-    const ROW = 112, TOP = 14, H = TOP + tr.rows.length * ROW;
+    const ROW = 132, TOP = 14, H = TOP + tr.rows.length * ROW;
     const pos = {};
     tr.rows.forEach((row, r) => row.forEach((id, i) => (pos[id] = { x: ((i + 0.5) / row.length) * 100, y: TOP + r * ROW })));
     const NS = "http://www.w3.org/2000/svg";
@@ -38,7 +38,7 @@
       if (!pos[cid] || !pos[pid]) return;
       const a = pos[pid], b = pos[cid], on = mastered(pid) >= 1;
       const ln = document.createElementNS(NS, "path");
-      const y1 = a.y + 84, y2 = b.y - 2, my = (y1 + y2) / 2;
+      const y1 = a.y + 108, y2 = b.y - 6, my = (y1 + y2) / 2;
       ln.setAttribute("d", "M" + a.x + " " + y1 + " C " + a.x + " " + my + ", " + b.x + " " + my + ", " + b.x + " " + y2);
       ln.setAttribute("class", "tl-edge" + (on ? " on" : ""));
       ln.setAttribute("vector-effect", "non-scaling-stroke");
@@ -49,7 +49,8 @@
       const sk = byId[id]; if (!sk) return;
       const s = S.skillStatus(sk, p), st = S.D.skills[id] || {}, n = (sk.tiers || []).length;
       const pips = h("span", { class: "tn-pips" }, Array.from({ length: n }, (_, i) => h("i", { class: i < (st.mastered || 0) ? "m" : st.active === i + 1 ? "a" : "" })));
-      const node = h("button", { class: "tn " + s.c, type: "button", style: { left: pos[id].x + "%", top: pos[id].y + "px" }, "aria-label": sk.name + ": " + s.label, onclick: () => S.skillSheet(sk, p) },
+      const cnt = tr.rows.find((rw) => rw.indexOf(id) >= 0).length;
+      const node = h("button", { class: "tn " + s.c + (cnt >= 4 ? " narrow" : ""), type: "button", style: { left: pos[id].x + "%", top: pos[id].y + "px", width: "min(96px, calc(" + (100 / cnt) + "% - 4px))" }, "aria-label": sk.name + ": " + s.label, onclick: () => S.skillSheet(sk, p) },
         h("span", { class: "tn-c" }, ICON[s.c] || "○"), h("span", { class: "tn-n" }, sk.name), pips);
       box.appendChild(node);
     });
