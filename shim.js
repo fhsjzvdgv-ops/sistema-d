@@ -1,12 +1,13 @@
 /* Система для Дария — замена облака: база и список дел живут в телефоне (localStorage) */
 (function () {
   "use strict";
-  const KEY = "sysD_db", TKEY = "sysD_tt";
+  const APP = window.APP || {};
+  const KEY = APP.key || "sysD_db", TKEY = APP.ttkey || "sysD_tt", APPN = APP.app || APPN;
   let DB = {}, TTS = { tasks: {}, comp: {} };
   try { DB = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { DB = {}; }
   try { TTS = JSON.parse(localStorage.getItem(TKEY)) || TTS; } catch (e) {}
   /* ---------- облачная копия: сохраняется сама, восстанавливается сама ---------- */
-  const CLOUD = "https://textdb.dev/api/data/e70f9805-330d-4735-8cec-187972f073c2-dariy-save";
+  const CLOUD = (APP.box || "https://textdb.dev/api/data/e70f9805-330d-4735-8cec-187972f073c2-") + (APP.me || "dariy") + "-save";
   const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const fresh = !localStorage.getItem(KEY);
   let cloudT = 0;
@@ -15,7 +16,7 @@
     clearTimeout(cloudT);
     cloudT = setTimeout(() => {
       const db = {}; Object.keys(DB).forEach((k) => { if (k.indexOf("codex/") !== 0) db[k] = DB[k]; });
-      fetch(CLOUD, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ app: "sistema-dariy", at: DB._at || Date.now(), db, tt: TTS }) }).catch(() => {});
+      fetch(CLOUD, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ app: APPN, at: DB._at || Date.now(), db, tt: TTS }) }).catch(() => {});
     }, 30000);
   }
   let saveT = 0;
@@ -47,7 +48,7 @@
   }
   /* слияние с облаком: события и отметки только складываются (ничего не теряется), снятые — помечаются */
   function mergeIn(x) {
-    if (!x || x.app !== "sistema-dariy" || !x.db) return false;
+    if (!x || x.app !== APPN || !x.db) return false;
     const c = x.db, ct = x.tt || { tasks: {}, comp: {} };
     const del = Object.assign({}, c._del || {}, DB._del || {}), tdel = Object.assign({}, ct._del || {}, TTS._del || {});
     let got = false;
@@ -200,8 +201,8 @@
     DB: () => DB, TT: () => TTS, persist, fireAll, emit,
     undo: (id) => { const rec = TTS.comp[id]; if (!rec) return; delete TTS.comp[id]; TTS._del = TTS._del || {}; TTS._del[id] = Date.now(); const t = TTS.tasks[id]; if (t) delete t.completedTime; persist(); fireAll(); },
     delTask: (id) => { const t = TTS.tasks[id]; if (t) { t.deleted = true; persist(); fireAll(); } },
-    exportAll: () => JSON.stringify({ app: "sistema-dariy", at: Date.now(), db: DB, tt: TTS }),
-    importAll: (txt) => { const x = JSON.parse(txt); if (x.app !== "sistema-dariy" || !x.db) throw new Error("bad"); localStorage.setItem(KEY, JSON.stringify(x.db)); localStorage.setItem(TKEY, JSON.stringify(x.tt || { tasks: {}, comp: {} })); }
+    exportAll: () => JSON.stringify({ app: APPN, at: Date.now(), db: DB, tt: TTS }),
+    importAll: (txt) => { const x = JSON.parse(txt); if (x.app !== APPN || !x.db) throw new Error("bad"); localStorage.setItem(KEY, JSON.stringify(x.db)); localStorage.setItem(TKEY, JSON.stringify(x.tt || { tasks: {}, comp: {} })); }
   };
   const caps = { db, mcp };
   window.claude = { use: (name) => ready.then(() => caps[name] || null) };

@@ -4,8 +4,9 @@
   const S = window.SYS, h = (...a) => S.h(...a), V = S.V, R = () => S.R();
 
   /* ---------- шестой путь: Музыка ---------- */
-  const M = { key: "music", name: "Музыка", color: "var(--p-music)", hex: "#FF7AD9", short: "биты, запись, сведение", stat: "Звук" };
-  S.PATHS.push(M); S.ALLP.splice(S.ALLP.length - 1, 0, M); S.BY.music = M;
+  const APP = window.APP || {}, EX = APP.extra || { key: "music", name: "Музыка", hex: "#FF7AD9", short: "биты, запись, сведение", stat: "Звук" };
+  const M = { key: EX.key, name: EX.name, color: "var(--p-" + EX.key + ")", hex: EX.hex, short: EX.short, stat: EX.stat };
+  S.PATHS.push(M); S.ALLP.splice(S.ALLP.length - 1, 0, M); S.BY[EX.key] = M;
   S.QUEST_KINDS.qi = 1;
 
   const LG = () => (S.D.ledger = S.D.ledger || {});
@@ -22,7 +23,7 @@
     Promise.all(P).catch(() => {}).then(() => { running = false; });
   };
   /* серия: только 6 главных дел; десятки дней; каждая новая десятка требует +1 главное дело */
-  const MAIN = ["music", "train", "brave", "breath", "sweet", "plan"];
+  const MAIN = (window.APP && window.APP.main) || ["music", "train", "brave", "breath", "sweet", "plan"];
   S.mainDone = (d) => MAIN.filter((k) => S.has("blk-" + d + "-" + k)).length;
   S.streakCalc = function () {
     const L = LG(), t = S.today(), start = L.start || t, offs = new Set(Object.values(L.dayOffs || {}));
@@ -132,7 +133,7 @@
 
 
   /* ---------- пруфы: перед зачётом скинуть подтверждение Эдуарду в Telegram ---------- */
-  const TG = "https://t.me/kurayg";
+  const TG = (window.APP && window.APP.tg) || "https://t.me/kurayg";
   const ttc0 = S.ttComplete;
   S.ttComplete = function (task) {
     const base = task && window.SYSD.TT().tasks[String(task.id).split("@")[0]];
