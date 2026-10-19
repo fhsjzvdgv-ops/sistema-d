@@ -125,6 +125,16 @@
         S.FX && S.FX.banner("[ НОВЫЙ РАНГ " + next.r + " ]", next.title + ". Ты сделал то, во что не верил.");
       }
     }
+    // штрафы за просроченные задачи со сроком (например, сериал к встрече): один штраф на группу
+    const seenPen = {};
+    Object.values(window.SYSD.TT().tasks).forEach((tk) => {
+      if (!tk.deadline || !tk.pen || tk.deleted || tk.completedTime || t <= tk.deadline) return;
+      const key = tk.penaltyKey || tk.id, id = "dpen-" + key;
+      if (seenPen[key] || S.has(id)) return; seenPen[key] = 1;
+      P.push(S.writeEv(id, { k: "pen", t: "Штраф: " + (tk.pen.title || tk.title), xp: tk.pen.xp || -30, g: tk.pen.g || -50, p: "osnova", d: tk.deadline, ts: Date.parse(tk.deadline + "T23:59:30+04:00") }));
+      if (tk.pen.pushups) P.push(S.ttCreate({ title: "💪 Долг: " + tk.pen.pushups + " отжиманий (" + (tk.pen.title || "срок") + ")", projectId: "sys", tags: ["тело"], priority: 3, content: "Штраф за просроченное. Можно частями. Отметь, когда отдашь." }).catch(() => {}));
+      S.FX && S.FX.banner("[ ШТРАФ ]", (tk.pen.title || tk.title) + ": " + (tk.pen.xp || -30) + " XP, " + (tk.pen.g || -50) + " ◆" + (tk.pen.pushups ? " и " + tk.pen.pushups + " отжиманий в долг" : ""));
+    });
     if (Object.keys(patch).length) P.push(saveState(patch));
     P.push(saveLedger());
   }
