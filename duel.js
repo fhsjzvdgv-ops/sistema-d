@@ -26,6 +26,13 @@
     ["💪", "100 отжиманий", "100 отжиманий в течение 2 часов, подходами, при победителе."],
     ["🧱", "Планка 10 минут", "10 минут планки суммарно за 15 минут, при победителе."]
   ];
+  const REP = [
+    ["💪", "50 отжиманий", "50 отжиманий."],
+    ["🧱", "Планка 5 минут", "5 минут планки суммарно."],
+    ["🦵", "50 приседаний", "50 приседаний."],
+    ["🔥", "30 бёрпи", "30 бёрпи."],
+    ["🫐", "Чёрная смородина", "Покупаешь чёрную смородину."]
+  ];
   const ym = (d) => d.slice(0, 7);
   const prevMonth = (m) => { const a = m.split("-").map(Number); return new Date(Date.UTC(a[0], a[1] - 2, 1)).toISOString().slice(0, 7); };
   function monthStats(m) {
@@ -96,21 +103,26 @@
       h("div", { class: "rt-row" }, h("span", null, "опыт"), h("b", null, x && x.xp != null ? String(x.xp) : "—")),
       h("div", { class: "rt-row" }, h("span", null, "серия"), h("b", null, x && x.streak != null ? x.streak + " д" : "—")));
   }
-  function wheelEl(spun, canSpin, onSpin, who) {
-    const n = WHEEL.length, seg = 360 / n, cols = ["#1b3a66", "#22497A"];
-    const grad = WHEEL.map((w, i) => cols[i % 2] + " " + (i * seg) + "deg " + ((i + 1) * seg) + "deg").join(",");
+  function wheelEl(spun, canSpin, onSpin, who, items, opts) {
+    const W = items || WHEEL;
+    const n = W.length, seg = 360 / n, cols = ["#1b3a66", "#22497A"];
+    const grad = W.map((w, i) => cols[i % 2] + " " + (i * seg) + "deg " + ((i + 1) * seg) + "deg").join(",");
     const disc = h("div", { class: "wh-disc", style: { background: "conic-gradient(" + grad + ")" } },
-      WHEEL.map((w, i) => h("span", { class: "wh-lab", style: { transform: "rotate(" + (i * seg + seg / 2) + "deg)" } }, h("i", null, w[0]), h("small", null, w[1]))));
+      W.map((w, i) => h("span", { class: "wh-lab", style: { transform: "rotate(" + (i * seg + seg / 2) + "deg)" } }, h("i", null, w[0]), h("small", null, w[1]))));
     if (spun != null) disc.style.transform = "rotate(" + (360 - (spun * seg + seg / 2)) + "deg)";
-    const out = h("div", { class: "wh-res" }, spun != null ? h("div", null, h("b", null, WHEEL[spun][0] + " " + WHEEL[spun][1]), h("div", { class: "muted" }, WHEEL[spun][2])) : null);
-    const btn = h("button", { class: "btn wide", type: "button", disabled: canSpin ? null : true }, canSpin ? "Крутить колесо" : spun != null ? "Колесо уже прокручено" : who ? "Крутит " + who + " после конца месяца" : "Крутит проигравший после конца месяца");
+    const out = h("div", { class: "wh-res" }, spun != null ? h("div", null, h("b", null, W[spun][0] + " " + W[spun][1]), h("div", { class: "muted" }, W[spun][2])) : null);
+    const btn = h("button", { class: "btn wide", type: "button", disabled: canSpin ? null : true }, canSpin ? ((opts && opts.label) || "Крутить колесо") : spun != null ? "Колесо уже прокручено" : who ? "Крутит " + who + " после конца месяца" : "Крутит проигравший после конца месяца");
     btn.addEventListener("click", () => {
-      if (!canSpin) return; btn.disabled = true;
+      if (!canSpin) return;
+      if (opts && opts.gate) { opts.gate().then((ok) => ok && start()); } else start();
+    });
+    function start() {
+      btn.disabled = true;
       const pick = Math.floor(Math.random() * n), turns = 6 * 360 + (360 - (pick * seg + seg / 2));
       disc.style.transition = "transform 5s cubic-bezier(.12,.8,.18,1)"; disc.style.transform = "rotate(" + turns + "deg)";
       let k = 0; const tk = setInterval(() => { S.FX.sound("tick"); if (++k > 22) clearInterval(tk); }, 200);
-      setTimeout(() => { S.FX.sound("level"); out.textContent = ""; out.appendChild(h("div", null, h("b", null, WHEEL[pick][0] + " " + WHEEL[pick][1]), h("div", { class: "muted" }, WHEEL[pick][2]))); onSpin(pick); }, 5200);
-    });
+      setTimeout(() => { S.FX.sound("level"); out.textContent = ""; out.appendChild(h("div", null, h("b", null, W[pick][0] + " " + W[pick][1]), h("div", { class: "muted" }, W[pick][2]))); onSpin(pick); }, 5200);
+    }
     return h("div", { class: "wh" }, h("div", { class: "wh-box" }, h("div", { class: "wh-ptr" }), disc), out, btn);
   }
   function dayCol(name, d) {
@@ -139,6 +151,15 @@
     const sub = !pb.ok ? "В конце месяца проигравший крутит колесо и выполняет то, что выпало." : loser ? "Прошлый месяц (" + monName(pm) + ") проиграл " + (loser.id === "me" ? "ты" : loser.name) + "." : "Прошлый месяц (" + monName(pm) + ") — ничья в хвосте, колесо не крутим.";
     root.appendChild(S.win("Колесо наказаний", sub, wheelEl(spun == null ? null : spun, !!(loser && loser.id === "me" && spun == null), (pick) => { const sp = Object.assign({}, (S.D.player || {}).duelSpins || {}, { [pm]: pick }); S.setPlayer({ duelSpins: sp }); setTimeout(() => S.duelSync(true), 500); }, loser && loser.id !== "me" ? loser.name : null),
       h("details", { class: "kn" }, h("summary", null, h("span", null, "Что может выпасть"), h("span", { class: "more" }, String(WHEEL.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, WHEEL.map((w) => h("li", null, w[0] + " " + w[1] + " — " + w[2])))))));
+    // рулетка за не скинутый отчёт: крутит тот, кто пропустил; выпавшее — его долг
+    const rspins = S.X.list.filter((e) => e.k === "repspin").sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5);
+    root.appendChild(S.win("Рулетка отчёта", "Не скинул отчёт — крутишь сам. Что выпало, становится твоим долгом в «Своих делах». Следите друг за другом сами.",
+      wheelEl(null, true, (pick) => {
+        const w = REP[pick];
+        S.writeEv("repspin-" + Date.now(), { k: "repspin", t: w[1], xp: 0, g: 0, p: "osnova" });
+        S.ttCreate({ title: "🎰 Долг за отчёт: " + w[1], projectId: (S.D.config || {}).ticktickProjectId || "sys", tags: ["тело"], priority: 3, content: w[2] + " Выпало на рулетке за нескинутый отчёт. Выполнил — отметь." }).catch(() => {});
+      }, null, REP, { label: "Не скинул отчёт — крутить", gate: () => S.FX.confirm("Не скинул отчёт?", "Крутим рулетку, и выпавшее ты выполняешь.", "Крутить") }),
+      rspins.length ? h("details", { class: "kn" }, h("summary", null, h("span", null, "Что выпадало"), h("span", { class: "more" }, String(rspins.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, rspins.map((e) => h("li", null, S.fmtDay(e.d) + " — " + e.t))))) : null));
     // отчёт по дням
     const rep = h("div"), me = list[0].d;
     Object.keys(me.days).sort().reverse().forEach((d, i) => {
