@@ -272,8 +272,10 @@
     restructure(root);
   };
   S.dailyQuestsBox = () => h("span");
-  function group(title, sub, rows, open) {
-    const det = h("details", { class: "dq" }); if (open) det.open = true;
+  function group(title, sub, rows, open, key) {
+    const ui = S.ui; ui.open = ui.open || {};
+    if (ui.open[key] === undefined) ui.open[key] = !!open;
+    const det = S.keep(h("details", { class: "dq" }), key);
     det.appendChild(h("summary", null, h("span", { class: "dq-t" }, title), h("span", { class: "dq-n" }, String(rows.length)), h("span", { class: "more" }, "открыть")));
     det.appendChild(h("div", { class: "qlist" }, sub ? h("div", { class: "muted" }, sub) : null, h("div", { class: "dlist" }, rows)));
     return h("section", { class: "win" }, det);
@@ -295,14 +297,14 @@
     });
     const skillQ = restDet.querySelector(".quest") ? [...restDet.querySelectorAll(".quest")] : [];
     const box = h("div");
-    if (own.length) box.appendChild(group("Свои дела", "Разовые дела: долги, звонки, то, что добавил сам. Сделал — «Готово».", own, true));
+    if (own.length) box.appendChild(group("Свои дела", "Разовые дела: долги, звонки, то, что добавил сам. Сделал — «Готово».", own, true, "grp-own"));
     const tasks = h("div", { class: "dlist" });
     const lbl = (x) => h("div", { class: "lbl", style: { margin: "10px 0 4px" } }, x);
     if (course.length) { tasks.appendChild(lbl("Курс — тема недели: 3 задания, делаешь по одному в любой день")); course.forEach((r) => tasks.appendChild(r)); }
     if (trial.length) { tasks.appendChild(lbl("Испытание — одно в день, завтра откроется следующее")); trial.forEach((r) => tasks.appendChild(r)); }
     if (week.length) { tasks.appendChild(lbl("Задание наставника — одно на всю неделю, не спеши")); week.forEach((r) => tasks.appendChild(r)); }
     if (course.length + trial.length + week.length) box.appendChild(S.win("Задания", "Не обязательные на сегодня — дают опыт и двигают курс", tasks));
-    if (bonus.length) box.appendChild(group("Бонус — по желанию", "Ежедневные мелочи сверху главных. В серию не идут, просто опыт.", bonus, false));
+    if (bonus.length) box.appendChild(group("Бонус — по желанию", "Ежедневные мелочи сверху главных. В серию не идут, просто опыт.", bonus, false, "grp-bonus"));
     if (skillQ.length) box.appendChild(S.win("Квесты навыков — на несколько дней", "Шаг за шагом, когда удобно", skillQ));
     sec.replaceWith(box);
   }

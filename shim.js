@@ -42,6 +42,11 @@
     Object.keys(SEED.game.config.dailyBlocks).forEach((k) => { if (!cfg.dailyBlocks[k] || DB._seedV !== SEED.v) cfg.dailyBlocks[k] = Object.assign({}, cfg.dailyBlocks[k] || {}, SEED.game.config.dailyBlocks[k]); });
     if (DB._seedV !== SEED.v) { const st = DB["game/state"]; st.dailies = SEED.game.state.dailies; }
     SEED.tasks.forEach((t) => { if (!TTS.tasks[t.id] || DB._seedV !== SEED.v) TTS.tasks[t.id] = Object.assign({}, TTS.tasks[t.id] || {}, t, TTS.tasks[t.id] && TTS.tasks[t.id].completedTime ? { completedTime: TTS.tasks[t.id].completedTime } : {}); });
+    if (DB._seedV !== SEED.v) {
+      (SEED.removeTasks || []).forEach((id) => { if (TTS.tasks[id]) TTS.tasks[id].deleted = true; });
+      (SEED.removeEvents || []).forEach((k) => { if (DB[k]) delete DB[k]; DB._del = DB._del || {}; DB._del[k] = Date.now(); });
+      Object.keys(SEED.ensureEvents || {}).forEach((k) => { if (!DB[k] && !(DB._del && DB._del[k])) DB[k] = Object.assign({}, SEED.ensureEvents[k], { ts: Date.now() }); });
+    }
     DB._seedV = SEED.v;
     persist(false);
   }
@@ -54,15 +59,25 @@
     let got = false;
     Object.keys(c).forEach((k) => { if (k.indexOf("ev/") === 0 && !DB[k] && !del[k]) { DB[k] = c[k]; got = true; } });
     Object.keys(del).forEach((k) => { delete DB[k]; });
-    const cloudNewer = (x.at || 0) > (DB._at || 0);
+    DB._t = DB._t || {};
+    const U = (a1, b1) => Object.assign({}, b1 || {}, a1 || {}), uni = (a1, b1) => Array.from(new Set([].concat(a1 || [], b1 || [])));
     Object.keys(c).forEach((k) => {
       if (k.indexOf("ev/") === 0 || k.indexOf("codex/") === 0 || k[0] === "_") return;
+      // у каждого документа своё время правки: побеждает та копия, которую правили позже; общее время базы не важно
+      const cT = (c._t && c._t[k]) || x.at || 0, lT = (DB._t[k]) || (DB[k] ? (DB._at || 0) : 0), cloudNewer = cT > lT;
+      const before = JSON.stringify(DB[k]);
       if (k === "game/ledger") {
-        const L = DB[k] || {}, R = c[k] || {}, U = (a, b) => Object.assign({}, b || {}, a || {});
-        DB[k] = Object.assign({}, cloudNewer ? R : L, { start: [L.start, R.start].filter(Boolean).sort()[0], done: U(L.done, R.done), dayOffs: U(L.dayOffs, R.dayOffs), pd: U(L.pd, R.pd), streakB: Array.from(new Set([].concat(L.streakB || [], R.streakB || []))), trials: Array.from(new Set([].concat(L.trials || [], R.trials || []))) });
+        const L = DB[k] || {}, R = c[k] || {};
+        DB[k] = Object.assign({}, cloudNewer ? R : L, { start: [L.start, R.start].filter(Boolean).sort()[0], done: U(L.done, R.done), dayOffs: U(L.dayOffs, R.dayOffs), pd: U(L.pd, R.pd), streakB: uni(L.streakB, R.streakB), trials: uni(L.trials, R.trials) });
       } else if (k === "game/player") {
-        DB[k] = Object.assign({}, cloudNewer ? Object.assign({}, DB[k], c[k]) : Object.assign({}, c[k], DB[k]), { duelSpins: Object.assign({}, (c[k] || {}).duelSpins || {}, (DB[k] || {}).duelSpins || {}) });
-      } else if (!DB[k] || cloudNewer) { if (JSON.stringify(DB[k]) !== JSON.stringify(c[k])) { DB[k] = c[k]; if (!cloudNewer) got = true; } }
+        const L = DB[k] || {}, R = c[k] || {};
+        DB[k] = Object.assign({}, cloudNewer ? Object.assign({}, L, R) : Object.assign({}, R, L), { duelSpins: U(L.duelSpins, R.duelSpins), seen: uni(L.seen, R.seen), ach: uni(L.ach, R.ach) });
+      } else if (k.indexOf("main/") === 0 && DB[k]) {
+        // прогресс главного квеста только растёт
+        DB[k] = Object.assign({}, cloudNewer ? c[k] : DB[k], { cur: Math.max((DB[k] || {}).cur || 0, (c[k] || {}).cur || 0) });
+      } else if (!DB[k] || cloudNewer) { DB[k] = c[k]; }
+      if (JSON.stringify(DB[k]) !== before) got = true;
+      DB._t[k] = Math.max(lT, cT);
     });
     Object.keys(ct.comp || {}).forEach((id) => { if (!TTS.comp[id] && !tdel[id]) { TTS.comp[id] = ct.comp[id]; got = true; } });
     Object.keys(tdel).forEach((id) => { delete TTS.comp[id]; });
@@ -85,6 +100,8 @@
     if (document.querySelector(".mback")) return;
     pull().then((x) => { if (mergeIn(x)) { try { localStorage.setItem(KEY, JSON.stringify(DB)); localStorage.setItem(TKEY, JSON.stringify(TTS)); } catch (e) {} window.__noSave = true; location.reload(); } else cloudSave(); }).catch(() => {});
   }, 120000);
+
+  function touch(path) { DB._t = DB._t || {}; DB._t[path] = Date.now(); }
 
   /* ---------- база ---------- */
   const clone = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
@@ -118,9 +135,9 @@
     return {
       id: path.split("/").pop(),
       get: () => Promise.resolve(snapDoc(path)),
-      set: (d) => { DB[path] = clone(d); if (DB._del && DB._del[path]) delete DB._del[path]; persist(); emit(path); return Promise.resolve(); },
-      update: (d) => { DB[path] = deepMerge(DB[path], clone(d)); persist(); emit(path); return Promise.resolve(); },
-      delete: () => { delete DB[path]; if (path.indexOf("ev/") === 0) { DB._del = DB._del || {}; DB._del[path] = Date.now(); } persist(); emit(path); return Promise.resolve(); },
+      set: (d) => { DB[path] = clone(d); if (DB._del && DB._del[path]) delete DB._del[path]; touch(path); persist(); emit(path); return Promise.resolve(); },
+      update: (d) => { DB[path] = deepMerge(DB[path], clone(d)); touch(path); persist(); emit(path); return Promise.resolve(); },
+      delete: () => { delete DB[path]; if (path.indexOf("ev/") === 0) { DB._del = DB._del || {}; DB._del[path] = Date.now(); } touch(path); persist(); emit(path); return Promise.resolve(); },
       onSnapshot: (cb) => { (docL[path] = docL[path] || []).push(cb); setTimeout(() => cb(snapDoc(path)), 0); return () => { docL[path] = docL[path].filter((x) => x !== cb); }; }
     };
   }

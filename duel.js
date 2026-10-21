@@ -2,7 +2,8 @@
    Общий код для всех игроков; различия — в блоке CFG. */
 (function () {
   "use strict";
-  const S = window.SYS, h = (...a) => S.h(...a), V = S.V;
+  const S = window.SYS, h = (...a) => S.h(...a), V = S.V, ui = S.ui;
+  const kd = (key, ...kids) => { ui.open = ui.open || {}; return S.keep(h("details", { class: "kn" }, ...kids), key); };
   const APP = window.APP, BOX = APP.box, RIVALS = APP.rivals, ME_LABEL = "Ты", RKEY = APP.rivalKey || "sys_rivals", WHEEL_CFG = APP.wheel || null;
   const MAINN = () => APP.main.length;
   const mainDone = (d) => (S.mainDone ? S.mainDone(d) : 0);
@@ -90,8 +91,8 @@
     const rows = DISC.map(([k, n, how, u]) => {
       u = u || ""; const vals = list.map((p) => (pick(p) ? pick(p)[k] : null)), mx = Math.max.apply(null, vals.map((v) => v || 0).concat([1])), best = Math.max.apply(null, vals.map((v) => (v == null ? -1 : v)));
       const strict = vals.filter((v) => v === best).length === 1;
-      const hw = h("div", { class: "vs-how", hidden: true }, how);
-      return [h("button", { class: "vs-row", type: "button", onclick: () => { hw.hidden = !hw.hidden; } }, h("div", { class: "vs-l" }, n),
+      const kk = "vs-" + k; const hw = h("div", { class: "vs-how", hidden: !((ui.open || {})[kk]) }, how);
+      return [h("button", { class: "vs-row", type: "button", onclick: () => { hw.hidden = !hw.hidden; ui.open = ui.open || {}; ui.open[kk] = !hw.hidden; } }, h("div", { class: "vs-l" }, n),
         list.map((p, i) => h("div", { class: "vs3" }, h("span", { class: "vs3-n" }, p.name), h("span", { class: "vs-bar" }, h("i", { class: strict && vals[i] === best ? "won" : "", style: { width: vals[i] == null ? "0%" : Math.round(100 * vals[i] / mx) + "%" } })), h("b", { class: "vs3-v" + (strict && vals[i] === best ? " won" : "") }, vals[i] == null ? "—" : vals[i] + u)))), hw];
     });
     return { el: S.win(title, sub, h("div", { class: "vs" }, top, h("div", { class: "vs-v" }, verdict), rows)), sc, leaders, has };
@@ -150,7 +151,7 @@
     const spun = loser ? (loser.id === "me" ? (S.D.player || {}).duelSpins || {} : (loser.d && loser.d.spins) || {})[pm] : null;
     const sub = !pb.ok ? "В конце месяца проигравший крутит колесо и выполняет то, что выпало." : loser ? "Прошлый месяц (" + monName(pm) + ") проиграл " + (loser.id === "me" ? "ты" : loser.name) + "." : "Прошлый месяц (" + monName(pm) + ") — ничья в хвосте, колесо не крутим.";
     root.appendChild(S.win("Колесо наказаний", sub, wheelEl(spun == null ? null : spun, !!(loser && loser.id === "me" && spun == null), (pick) => { const sp = Object.assign({}, (S.D.player || {}).duelSpins || {}, { [pm]: pick }); S.setPlayer({ duelSpins: sp }); setTimeout(() => S.duelSync(true), 500); }, loser && loser.id !== "me" ? loser.name : null),
-      h("details", { class: "kn" }, h("summary", null, h("span", null, "Что может выпасть"), h("span", { class: "more" }, String(WHEEL.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, WHEEL.map((w) => h("li", null, w[0] + " " + w[1] + " — " + w[2])))))));
+      kd("wh-list", h("summary", null, h("span", null, "Что может выпасть"), h("span", { class: "more" }, String(WHEEL.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, WHEEL.map((w) => h("li", null, w[0] + " " + w[1] + " — " + w[2])))))));
     // рулетка за не скинутый отчёт: крутит тот, кто пропустил; выпавшее — его долг
     const rspins = S.X.list.filter((e) => e.k === "repspin").sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5);
     root.appendChild(S.win("Рулетка отчёта", "Не скинул отчёт — крутишь сам. Что выпало, становится твоим долгом в «Своих делах». Следите друг за другом сами.",
@@ -159,11 +160,11 @@
         S.writeEv("repspin-" + Date.now(), { k: "repspin", t: w[1], xp: 0, g: 0, p: "osnova" });
         S.ttCreate({ title: "🎰 Долг за отчёт: " + w[1], projectId: (S.D.config || {}).ticktickProjectId || "sys", tags: ["тело"], priority: 3, content: w[2] + " Выпало на рулетке за нескинутый отчёт. Выполнил — отметь." }).catch(() => {});
       }, null, REP, { label: "Не скинул отчёт — крутить", gate: () => S.FX.confirm("Не скинул отчёт?", "Крутим рулетку, и выпавшее ты выполняешь.", "Крутить") }),
-      rspins.length ? h("details", { class: "kn" }, h("summary", null, h("span", null, "Что выпадало"), h("span", { class: "more" }, String(rspins.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, rspins.map((e) => h("li", null, S.fmtDay(e.d) + " — " + e.t))))) : null));
+      rspins.length ? kd("wh-hist", h("summary", null, h("span", null, "Что выпадало"), h("span", { class: "more" }, String(rspins.length))), h("div", { class: "body" }, h("ul", { class: "conds" }, rspins.map((e) => h("li", null, S.fmtDay(e.d) + " — " + e.t))))) : null));
     // отчёт по дням
     const rep = h("div"), me = list[0].d;
     Object.keys(me.days).sort().reverse().forEach((d, i) => {
-      const det = h("details", { class: "kn" }); if (i === 0) det.open = true;
+      ui.open = ui.open || {}; if (ui.open["rp-" + d] === undefined) ui.open["rp-" + d] = i === 0; const det = S.keep(h("details", { class: "kn" }), "rp-" + d);
       const marks = list.map((p) => { const o = p.d && p.d.days ? p.d.days[d] : null; return o ? (o.ok ? "✓" : "✗") : "—"; }).join(" / ");
       det.appendChild(h("summary", null, h("span", null, S.fmtDay(d)), h("span", { class: "more" }, marks)));
       det.appendChild(h("div", { class: "body rp" }, list.map((p) => dayCol(p.name, p.d && p.d.days ? p.d.days[d] : null))));
