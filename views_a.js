@@ -475,7 +475,7 @@
   };
 
   /* ---------- МАГАЗИН ---------- */
-  const SHOP_TABS = [["boost", "Бусты"], ["card", "Карты опыта"], ["frame", "Рамки"], ["nick", "Ник"], ["pet", "Питомец"], ["guide", "Контент"], ["artifact", "Артефакты"], ["lib", "Библиотека"]];
+  const SHOP_TABS = [["boost", "Бусты"], ["card", "Карты опыта"], ["frame", "Рамки"], ["nick", "Ник"], ["pet", "Питомец"], ["guide", "Контент"], ["artifact", "Артефакты"], ["real", "Реально"], ["lib", "Библиотека"]];
   V.shop = function (root) {
     const X = S.X;
     root.appendChild(h("div", { class: "qtop" }, h("div", null, h("b", { class: "gold" }, "◆ " + X.gold), h("small", null, "золото")), h("div", null, h("b", null, String(Object.keys(X.inv).filter((k) => X.inv[k] > 0).length)), h("small", null, "в библиотеке"))));
@@ -495,7 +495,7 @@
       box.appendChild(h("div", { class: "si" }, h("div", { class: "si-i" + (it.css ? " prev-" + it.cat + "-" + it.css : "") }, it.icon || "◆"), h("div", { class: "si-b" }, h("b", null, it.name), h("small", null, it.text)),
         owned || cosmeticOwned ? h("span", { class: "ok" }, "есть") : h("button", { class: "btn sm", type: "button", disabled: lock || X.gold < it.cost ? true : null, onclick: () => S.FX.confirm("Купить?", it.name + " — " + it.cost + " ◆", "Купить").then((ok) => ok && S.buy(it.id)) }, lock ? "ур. " + it.minLevel : it.cost + " ◆")));
     });
-    const titles = { boost: ["Бусты", "Заморозка, воскрешение, множители"], card: ["Карты опыта", "Сразу опыт в выбранный путь"], frame: ["Рамки аватара", "Косметика — надеваешь в библиотеке"], nick: ["Эффекты ника", "И «Свиток прошлого» для смены имени"], pet: ["Для питомца", "Корм и лакомства"], artifact: ["Артефакты", "Шкатулка с 10 уровня"] }[ui.shopTab] || ["", ""];
+    const titles = { real: ["Реальные награды", "Золото → настоящая жизнь: заработал, купил, взял без вины"], boost: ["Бусты", "Заморозка, воскрешение, множители"], card: ["Карты опыта", "Сразу опыт в выбранный путь"], frame: ["Рамки аватара", "Косметика — надеваешь в библиотеке"], nick: ["Эффекты ника", "И «Свиток прошлого» для смены имени"], pet: ["Для питомца", "Корм и лакомства"], artifact: ["Артефакты", "Шкатулка с 10 уровня"] }[ui.shopTab] || ["", ""];
     root.appendChild(S.win(titles[0], titles[1], box));
   };
   S.buyGuide = function (gd) {
@@ -530,6 +530,7 @@
     if (id === "revive") return S.FX.confirm("Воскресить серию?", "Сработает, если серия сгорела за последние 2 дня. Вечерний подсчёт вернёт её.", "Применить").then((ok) => ok && S.useItem(id).then((x) => x && S.FX.banner("[ СВИТОК ВОСКРЕШЕНИЯ ]", "Серия вернётся при вечернем подсчёте.")));
     if (id === "freeze") return S.FX.confirm("Заморозить сегодня?", "Пропуск сегодняшних блоков не порвёт серию.", "Заморозить").then((ok) => ok && S.useItem(id).then((x) => x && S.FX.banner("[ ЗАМОРОЗКА ]", "Сегодня серия под защитой.")));
     if (id === "art_roll" || id === "art_rare") { const a = S.rollArtifact(); return S.useItem(id).then((ok) => ok && S.writeEv(S.uid("art"), { k: "gift", t: "Артефакт: " + a.name, xp: 0, g: 0, m: { art: a.id } }).then(() => S.FX.chest("Артефакт", [a.name, ((G().rarity || {})[a.rar] || [""])[0], a.lore]))); }
+    if (it.cat === "real") return S.FX.confirm("Забираешь награду?", it.name + " — сделай это в жизни, без вины. Ты это заработал.", "Забрал").then((go) => go && S.useItem(id).then((ok) => ok && S.FX.banner("[ НАГРАДА ]", it.name + ". Заработано честно.")));
     return S.useItem(id).then((ok) => ok && S.FX.banner("[ ПРИМЕНЕНО ]", it.name || id));
   };
 })();
