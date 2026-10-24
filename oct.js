@@ -2,7 +2,20 @@
    Общий код для всех игроков; различия — в window.APP. */
 (function () {
   "use strict";
-  const S = window.SYS, h = (...a) => S.h(...a), V = S.V, ui = S.ui, APP = window.APP || {};
+  const S = window.SYS, h = (...a) => S.h(...a), V = S.V, ui = S.ui;
+  // в окне Эдуарда нет window.APP — там свои настройки
+  const APP = window.APP || { me: "eduard", meName: "Эдуард", rivals: [{ id: "dariy", name: "Дарий" }, { id: "ilya", name: "Илья" }], rivalKey: "sysE_rivals" };
+  if (!S.mainDone) { const blocks = () => Object.keys((S.D.config || {}).dailyBlocks || {}); S.mainDone = (d) => blocks().filter((k) => S.has("blk-" + d + "-" + k)).length; }
+  if (!S.streakCalc) {
+    // окно Эдуарда: день в серию — если засчитан минимум дня; прощений нет
+    const closed = (d) => (S.dayClosed ? S.dayClosed(d) : S.has("minday-" + d) || S.has("allblk-" + d));
+    S.streakCalc = function () {
+      const t = S.today(), start = S.cutoffDay ? S.cutoffDay() : "2026-09-29", need = {}, st = {}; let run = 0, best = 0;
+      const nb = Math.max(1, Object.keys((S.D.config || {}).dailyBlocks || {}).length);
+      for (let d = start; d <= t; d = S.addDays(d, 1)) { need[d] = nb; if (closed(d)) { st[d] = "ok"; run++; } else if (d === t) st[d] = "today"; else { st[d] = "miss"; run = 0; } if (run > best) best = run; }
+      return { tens: Math.floor(run / 10), inTen: run % 10, need, st, run, best, wkOff: {}, today: nb, start };
+    };
+  }
   const kd = (key, ...kids) => { ui.open = ui.open || {}; return S.keep(h("details", { class: "kn" }, ...kids), key); };
   const PL = () => S.D.player || {};
   const hash = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
@@ -134,7 +147,12 @@
     x.why = (p.why && p.why.text) || "";
     return x;
   };
-  function rivalsLive() { try { return JSON.parse(localStorage.getItem(APP.rivalKey || "sys_rivals")) || {}; } catch (e) { return {}; } }
+  function rivalsLive() {
+    let a = {}; try { a = JSON.parse(localStorage.getItem(APP.rivalKey || "sys_rivals")) || {}; } catch (e) {}
+    const b = ((S.D.duelDoc || {}).rivals) || {}, out = {};
+    new Set(Object.keys(a).concat(Object.keys(b))).forEach((k) => { out[k] = (a[k] && (!b[k] || (a[k].at || 0) >= (b[k].at || 0))) ? a[k] : b[k]; });
+    return out;
+  }
   function respScan() {
     if (!S.X || !S.db) return;
     const live = rivalsLive(), t = S.today(), y = S.addDays(t, -1);
