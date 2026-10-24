@@ -15,8 +15,12 @@
 
   /* ---------- вечерний подсчёт ---------- */
   let running = false;
+  let ledSub = false;
   S.localEvening = function () {
     if (running || !S.db || !S.ready.ev || !S.D.state || !S.D.config || !S.X) return;
+    // журнал дней (старт, обработанные дни, выходные) раньше не подгружался — из-за этого серия обнулялась каждый день
+    if (!ledSub) { ledSub = true; S.db.doc("game/ledger").onSnapshot((s) => { S.D.ledger = Object.assign({}, s.exists ? s.data() : {}); S.ready.ledger = true; S.render(); }); }
+    if (!S.ready.ledger) return;
     running = true;
     const P = [];
     try { run(P); } catch (e) { console.error(e); }
@@ -25,46 +29,69 @@
   /* серия: только 6 главных дел; десятки дней; каждая новая десятка требует +1 главное дело */
   const MAIN = (window.APP && window.APP.main) || ["music", "train", "brave", "breath", "sweet", "plan"];
   S.mainDone = (d) => MAIN.filter((k) => S.has("blk-" + d + "-" + k)).length;
+  // начало игры — самый ранний день с закрытым главным делом (или записанный старт, если он раньше)
+  S.gameStart = function () {
+    const L = LG(), t = S.today(); let first = L.start || t;
+    Object.keys(S.D.ev || {}).forEach((id) => { const m = /^blk-(\d{4}-\d\d-\d\d)-/.exec(id); if (m && m[1] < first) first = m[1]; });
+    return first;
+  };
+  // разбор каждого дня: в серию / прощён (1 пропуск в неделю) / заморозка / сорван
   S.streakCalc = function () {
-    const L = LG(), t = S.today(), start = L.start || t, offs = new Set(Object.values(L.dayOffs || {}));
+    const t = S.today(), start = S.gameStart();
     const freezeFor = (d) => S.X && S.X.list.some((e) => e.k === "use" && e.m && e.m.item === "freeze" && e.m.forDate === d);
-    let tens = 0, inTen = 0; const need = {};
+    let tens = 0, inTen = 0, run = 0, best = 0; const need = {}, st = {}, wkOff = {};
     for (let d = start; d <= t; d = S.addDays(d, 1)) {
       need[d] = Math.min(6, 3 + tens);
-      const ok = S.mainDone(d) >= need[d];
-      if (ok) { inTen++; if (inTen >= 10) { tens++; inTen = 0; } }
-      else if (d === t || offs.has(d) || freezeFor(d)) { /* сегодня ещё идёт / выходной / заморозка */ }
-      else inTen = 0;
+      const ws = S.weekStart(d);
+      if (S.mainDone(d) >= need[d]) { st[d] = "ok"; inTen++; run++; if (inTen >= 10) { tens++; inTen = 0; } }
+      else if (d === t) st[d] = "today";
+      else if (freezeFor(d)) st[d] = "freeze";
+      else if (!wkOff[ws]) { wkOff[ws] = d; st[d] = "off"; }
+      else { st[d] = "miss"; inTen = 0; run = 0; }
+      if (run > best) best = run;
     }
-    return { tens, inTen, need, today: need[t] || 3 };
+    return { tens, inTen, need, st, run, best, wkOff, today: need[t] || 3, start };
   };
   S.minNeed = () => S.streakCalc().today;
   S.minCount = (d) => S.mainDone(d);
   S.dayClosed = (d) => S.mainDone(d) >= (S.streakCalc().need[d] || 3);
   S.minWin = function () {
-    const c = S.streakCalc(), t = S.today(), n = S.mainDone(t), ok = n >= c.today;
+    const c = S.streakCalc(), t = S.today(), n = S.mainDone(t), ok = n >= c.today, left = Math.max(0, c.today - n);
     const dots = h("div", { class: "mind" }, Array.from({ length: 6 }, (_, i) => h("span", { class: i < n ? "on" : "" })));
-    return S.win(ok ? "✓ День в серию" : "Серия: сегодня " + n + " из " + c.today + " главных",
-      "Серия " + c.tens + " · день " + c.inTen + " из 10. В зачёт идут только 6 главных дел. Каждая новая десятка — на одно главное дело больше (сейчас " + c.today + " из 6).",
-      dots, h("div", { class: "muted" }, "Сорвался посреди десятки — она начинается заново, прошлые сохраняются. Один пропуск в неделю прощается. Пропуск: −30 XP, −50 ◆ и 30 отжиманий в долг."));
+    const offUsed = !!c.wkOff[S.weekStart(t)];
+    // десятка: 10 клеток, закрашены дни текущей десятки
+    const ten = h("div", { class: "mind ten" }, Array.from({ length: 10 }, (_, i) => h("span", { class: i < c.inTen ? "on" : "" })));
+    return S.win(ok ? "✓ Сегодня в серию" : "Серия: осталось " + left + " главн. до зачёта",
+      "Подряд " + c.run + " дн. · десяток собрано: " + c.tens + " · в этой десятке " + c.inTen + " из 10",
+      h("div", { class: "muted" }, "Сегодня закрыто " + n + " из " + c.today + " нужных главных дел:"), dots,
+      h("div", { class: "muted" }, "Текущая десятка:"), ten,
+      h("ul", { class: "conds" },
+        h("li", null, "День в серию — когда закрыл " + c.today + " из 6 главных дел. За каждую собранную десятку планка +1 (максимум 6)."),
+        h("li", null, "Собрал 10 дней — десятка сохраняется навсегда, +XP, золото и сундук."),
+        h("li", null, "Один пропуск в неделю прощается сам" + (offUsed ? " — на этой неделе уже использован." : " — на этой неделе ещё свободен.")),
+        h("li", null, "Второй пропуск за неделю — текущая десятка начинается заново, −30 XP, −50 ◆ и 30 отжиманий в долг. Собранные десятки не сгорают."),
+        h("li", null, "Заморозка из магазина закрывает пропуск без потерь.")),
+      h("button", { class: "btn ghost wide", type: "button", onclick: () => S.go("history") }, "История по дням →"));
   };
   function closedDay(d) { return S.dayClosed(d); }
   function run(P) {
     const L = LG(), t = S.today(), rr = R();
-    if (!L.start) L.start = t;
+    L.start = S.gameStart();
     L.done = L.done || {}; L.dayOffs = L.dayOffs || {}; L.pd = L.pd || {}; L.trials = L.trials || []; L.streakB = L.streakB || [];
-    const freezeFor = (d) => S.X.list.some((e) => e.k === "use" && e.m && e.m.item === "freeze" && e.m.forDate === d);
+    // после починки старта (24.10) прошлые дни задним числом не штрафуем — только считаем серию
+    if (!L.fixFrom) { L.fixFrom = t; for (let d = L.start; d < t; d = S.addDays(d, 1)) L.done[d] = 1; }
+    const SC = S.streakCalc();
     // 1) прошедшие дни: выходной, штраф, итог дня
     for (let d = L.start; d < t; d = S.addDays(d, 1)) {
       if (L.done[d]) continue;
       L.done[d] = 1;
-      const ok = closedDay(d), need = S.streakCalc().need[d] || 3;
+      const ok = closedDay(d), need = SC.need[d] || 3, sd = SC.st[d];
       if (ok && !S.has("minday-" + d)) P.push(S.award({ id: "minday-" + d, k: "minday", t: "День в серию", p: "osnova", r: "D", d, quiet: true, noExtras: true, noCrit: true }));
       let note = "";
       if (!ok) {
         const ws = S.weekStart(d);
-        if (freezeFor(d)) note = "Пропуск закрыт заморозкой.";
-        else if (!L.dayOffs[ws]) { L.dayOffs[ws] = d; note = "Пропуск прощён: один выходной в неделю."; }
+        if (sd === "freeze") note = "Пропуск закрыт заморозкой.";
+        else if (sd === "off") { L.dayOffs[ws] = d; note = "Пропуск прощён: один выходной в неделю."; }
         else if ((rr.penalty || {}).mode === "on" && !S.has("pen-" + d)) {
           P.push(S.writeEv("pen-" + d, { k: "pen", t: "Пропуск дня", xp: -30, g: -50, p: "osnova", d, ts: Date.parse(d + "T23:59:00+04:00") }));
           P.push(S.ttCreate({ title: "💪 Долг: 30 отжиманий (за " + S.fmtDay(d) + ")", projectId: "sys", tags: ["тело"], priority: 3, content: "Штраф за пропуск дня. Можно частями. Отметь, когда отдашь." }).catch(() => {}));
@@ -76,9 +103,10 @@
     }
     // 2) серия в десятках
     const sc = S.streakCalc(), st = S.D.state || {}, patch = {};
-    if (st.streak !== sc.tens) patch.streak = sc.tens;
+    if (st.streak !== sc.run) patch.streak = sc.run;
+    if (st.tens !== sc.tens) patch.tens = sc.tens;
     if (st.streakDays !== sc.inTen) patch.streakDays = sc.inTen;
-    if ((st.bestStreak || 0) < sc.tens) patch.bestStreak = sc.tens;
+    if ((st.bestStreak || 0) < sc.best) patch.bestStreak = sc.best;
     if (sc.tens > 0 && L.streakB.indexOf("ten-" + sc.tens) < 0) {
       L.streakB.push("ten-" + sc.tens);
       P.push(S.writeEv("streak-ten-" + sc.tens, { k: "streak", t: "Серия " + sc.tens + ": десять дней подряд", p: "osnova", xp: 100 * sc.tens, g: 50 * sc.tens }));

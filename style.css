@@ -669,3 +669,15 @@ body[data-view=today] .hud-main, body[data-view=today] .hud-xp, body[data-view=t
 .tn.narrow .tn-c { width: 40px; height: 40px; font-size: 15px; }
 .tn.narrow .tn-n { font-size: 9.5px; letter-spacing: -.01em; }
 .tn-pips { position: relative; z-index: 1; }
+/* oct.js: история, зачем, рейд, респект */
+.mind.ten { gap: 5px; flex-wrap: wrap; } .mind.ten span { width: 20px; height: 20px; }
+.why .why-t { font-size: 17px; font-weight: 600; margin: 6px 0; line-height: 1.35; }
+.plate.hot { border-color: var(--good); box-shadow: 0 0 12px var(--good); }
+.raid-who { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.raid-p { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-soft); font-size: 13px; }
+.raid-p.on { border-color: var(--good); color: var(--good); }
+.hs-day.miss > summary { color: var(--bad, #ff5c6c); } .hs-day.off > summary, .hs-day.freeze > summary { opacity: .8; }
+.hs-list li.red { color: var(--bad, #ff5c6c); }
+.inp { width: 100%; box-sizing: border-box; margin: 6px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: transparent; color: inherit; font: inherit; }
+.why .why-t { cursor: pointer; } .why-n { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.lnk { background: none; border: 0; color: var(--accent, #4CC9F0); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 0; }

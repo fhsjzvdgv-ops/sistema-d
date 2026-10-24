@@ -135,7 +135,7 @@
         h("span", { class: "hs-mid" }, h("b", null, pl.nick || st.player || "Игрок"), h("small", null, (pl.title || st.title || "Пробуждённый") + " · ранг " + (st.rank || "E")), S.bar(pct, "xpbar"), h("small", null, X.L.in + " / " + X.L.need + " XP до уровня " + (X.level + 1)))),
       h("div", { class: "hs-row" },
         h("span", { class: "hs-min" }, "Главные ", h("span", { class: "mind sm" }, Array.from({ length: need }, (_, i) => h("span", { class: i < n ? "on" : "" })))),
-        h("span", null, "серия ", h("b", null, String(st.streak || 0)), " · " + (st.streakDays || 0) + "/10"),
+        h("span", null, "серия ", h("b", null, String(S.streakCalc ? S.streakCalc().run : st.streak || 0) + " дн."), " · десятка " + (S.streakCalc ? S.streakCalc().inTen : st.streakDays || 0) + "/10"),
         h("span", null, h("b", { class: "gold" }, "◆ " + X.gold))),
       n >= need ? h("div", { class: "okline" }, "✓ День засчитан. Всё остальное сегодня — бонус.") : h("div", { class: "muted" }, "Серия — только за главные дела. Пропуск: −30 XP, −50 ◆ и 30 отжиманий в долг."),
       paths);

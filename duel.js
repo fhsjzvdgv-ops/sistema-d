@@ -8,9 +8,10 @@
   const MAINN = () => APP.main.length;
   const mainDone = (d) => (S.mainDone ? S.mainDone(d) : 0);
   const closed = (d) => (S.dayClosed ? S.dayClosed(d) : false);
-  const startDay = () => ((S.D.ledger || {}).start || S.today());
+  const startDay = () => (S.gameStart ? S.gameStart() : ((S.D.ledger || {}).start || S.today()));
   const myName = () => APP.meName;
-  const streakDays = () => { const c = S.streakCalc ? S.streakCalc() : { tens: 0, inTen: 0 }; return c.tens * 10 + c.inTen; };
+  const streakDays = () => (S.streakCalc ? S.streakCalc().run : 0);
+  const streakTens = () => (S.streakCalc ? S.streakCalc().tens : 0);
   const docRivals = () => ({});
   function push(x) { fetch(BOX + APP.me, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(x) }).catch(() => {}); }
   const DISC = [
@@ -54,7 +55,7 @@
   }
   S.duelMine = function () {
     const t = S.today(), st = S.D.state || {};
-    return Object.assign({ name: myName(), at: Date.now(), level: S.X.level, xp: Math.round(S.X.xp), rank: st.rank || "E", streak: streakDays(), days: daysReport(7), spins: (S.D.player || {}).duelSpins || {} },
+    return Object.assign({ name: myName(), at: Date.now(), level: S.X.level, xp: Math.round(S.X.xp), rank: st.rank || "E", streak: streakDays(), tens: streakTens(), days: daysReport(7), spins: (S.D.player || {}).duelSpins || {} },
       { cur: monthStats(ym(t)), prev: monthStats(prevMonth(ym(t))) });
   };
   let live = {}, lastPush = 0, lastPull = 0;
@@ -85,9 +86,10 @@
   }
   function board(list, pick, title, sub) {
     const sc = scores(list, pick), has = list.filter((p) => pick(p));
-    const max = Math.max.apply(null, Object.values(sc.tot).concat([-1])), leaders = sc.ok ? list.filter((p) => sc.tot[p.id] === max && pick(p)) : [];
+    const max = Math.max.apply(null, Object.values(sc.tot).concat([-1])); let leaders = sc.ok ? list.filter((p) => sc.tot[p.id] === max && pick(p)) : [], tb = false;
+    if (leaders.length > 1) { const w = pickWinner(list, sc, pick); if (w) { leaders = [w]; tb = true; } }
     const top = h("div", { class: "vs-top n" + list.length }, list.map((p) => h("div", { class: "vs-p" + (sc.ok && leaders.length === 1 && leaders[0] === p ? " lead" : "") }, h("small", null, p.name), h("b", { class: "vs-s" }, pick(p) && sc.ok ? String(sc.tot[p.id]) : "–"))));
-    const verdict = !sc.ok ? "Ждём цифры соперников — придут сами" : leaders.length === 1 ? leaders[0].name + (leaders[0].id === "me" ? " впереди" : " впереди") : "Пока ничья";
+    const verdict = !sc.ok ? "Ждём цифры соперников — придут сами" : leaders.length === 1 ? leaders[0].name + " впереди" + (tb ? " (при равных очках — по доле главных)" : "") : "Пока ничья";
     const rows = DISC.map(([k, n, how, u]) => {
       u = u || ""; const vals = list.map((p) => (pick(p) ? pick(p)[k] : null)), mx = Math.max.apply(null, vals.map((v) => v || 0).concat([1])), best = Math.max.apply(null, vals.map((v) => (v == null ? -1 : v)));
       const strict = vals.filter((v) => v === best).length === 1;
@@ -102,7 +104,8 @@
     return h("div", { class: "rt-c" + (lead ? " lead" : "") }, h("small", null, p.name), h("b", { class: "rt-l" }, x ? String(x.level) : "–"), h("span", null, "уровень"),
       h("div", { class: "rt-row" }, h("span", null, "ранг"), h("b", null, x ? x.rank || "E" : "—")),
       h("div", { class: "rt-row" }, h("span", null, "опыт"), h("b", null, x && x.xp != null ? String(x.xp) : "—")),
-      h("div", { class: "rt-row" }, h("span", null, "серия"), h("b", null, x && x.streak != null ? x.streak + " д" : "—")));
+      h("div", { class: "rt-row" }, h("span", null, "подряд"), h("b", null, x && x.streak != null ? x.streak + " д" : "—")),
+      h("div", { class: "rt-row" }, h("span", null, "десяток"), h("b", null, x && x.tens != null ? String(x.tens) : "—")));
   }
   function wheelEl(spun, canSpin, onSpin, who, items, opts) {
     const W = items || WHEEL;
@@ -133,6 +136,32 @@
       h("div", { class: "muted" }, (d.ok ? "✓ в серию" : "✗ не в серию") + " · главных " + (d.main != null ? d.main : "—") + " · +" + xp + " XP"),
       (d.items || []).length ? h("ul", { class: "conds" }, d.items.map((x) => h("li", null, x.t))) : h("div", { class: "muted" }, "ничего не отмечено"));
   }
+  // проигравший: меньше всех очков; при равенстве — меньше % главных, потом меньше дней в серию, потом идеальных дней
+  function pickLoser(list, sc, pick) {
+    let ls = list.filter((p) => pick(p));
+    const mn = Math.min.apply(null, ls.map((p) => sc.tot[p.id])); ls = ls.filter((p) => sc.tot[p.id] === mn);
+    ["mainPct", "closed", "perfect"].forEach((k) => { if (ls.length < 2) return; const m2 = Math.min.apply(null, ls.map((p) => pick(p)[k])); ls = ls.filter((p) => pick(p)[k] === m2); });
+    return ls.length === 1 ? ls[0] : null;
+  }
+  function pickWinner(list, sc, pick) {
+    let ws = list.filter((p) => pick(p));
+    const mx = Math.max.apply(null, ws.map((p) => sc.tot[p.id])); ws = ws.filter((p) => sc.tot[p.id] === mx);
+    ["mainPct", "closed", "perfect"].forEach((k) => { if (ws.length < 2) return; const m2 = Math.max.apply(null, ws.map((p) => pick(p)[k])); ws = ws.filter((p) => pick(p)[k] === m2); });
+    return ws.length === 1 ? ws[0] : null;
+  }
+  function rulesCard(cm) {
+    const t = S.today(), a = cm.split("-").map(Number), last = new Date(Date.UTC(a[0], a[1], 0)).toISOString().slice(0, 10);
+    const left = Math.round((Date.parse(last) - Date.parse(t)) / 864e5) + 1;
+    return kd("duel-rules", h("summary", null, h("span", null, "Как подводятся итоги месяца"), h("span", { class: "more" }, "до итога " + left + " дн.")),
+      h("div", { class: "body" }, h("ul", { class: "conds" },
+        h("li", null, "Период — календарный месяц: с 1-го по " + +last.slice(8) + "-е. Новичок считается со своего первого дня."),
+        h("li", null, "Итог фиксируется 1-го числа следующего месяца, в полночь по Астрахани. Что не отметил до полуночи последнего дня — не идёт."),
+        h("li", null, "Три дисциплины: % главных дел от возможных за месяц, дни в серию, идеальные дни (закрыты все главные). У каждого свой список главных, поэтому сравнивается доля, а не штуки."),
+        h("li", null, "В каждой дисциплине ты получаешь очко за каждого соперника, которого обогнал. Максимум — 6 очков."),
+        h("li", null, "Проигравший — у кого меньше всех очков. Равенство — смотрим % главных, потом дни в серию, потом идеальные дни."),
+        h("li", null, "Проигравший крутит колесо наказаний и выполняет выпавшее до 10-го числа. Победитель месяца получает титул «Чемпион месяца» и +300 XP."),
+        h("li", null, "Цифры соперников приходят сами, когда они открывают своё окно. Кто не открывал — цифры на момент последнего входа."))));
+  }
   const MON = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
   const monName = (m) => MON[+m.slice(5, 7) - 1];
   V.duel = function (root) {
@@ -144,10 +173,15 @@
     // месяц
     const mb = board(list, (p) => (p.d && p.d.cur && p.d.cur.month === cm ? p.d.cur : null), "Дуэль месяца · " + monName(cm), "Доля от своего плана с 1-го числа. Очки: сколько соперников ты обогнал в каждой дисциплине. Нажми на строку — как считается.");
     root.appendChild(mb.el);
+    root.appendChild(rulesCard(cm));
     // колесо: итог прошлого месяца
     const pb = scores(list, (p) => (p.d && p.d.prev && p.d.prev.month === pm && p.d.prev.nd ? p.d.prev : null));
     let loser = null;
-    if (pb.ok) { const vals = Object.values(pb.tot), mn = Math.min.apply(null, vals); const ls = list.filter((p) => pb.tot[p.id] === mn && p.d && p.d.prev && p.d.prev.month === pm && p.d.prev.nd); if (ls.length === 1) loser = ls[0]; }
+    if (pb.ok) loser = pickLoser(list, pb, (p) => (p.d && p.d.prev && p.d.prev.month === pm && p.d.prev.nd ? p.d.prev : null));
+    const pickPrev = (p) => (p.d && p.d.prev && p.d.prev.month === pm && p.d.prev.nd ? p.d.prev : null);
+    const champ = pb.ok ? pickWinner(list, pb, pickPrev) : null;
+    if (champ && champ.id === "me" && !S.has("champ-" + pm)) S.writeEv("champ-" + pm, { k: "gift", t: "Чемпион месяца: " + monName(pm), xp: 300, g: 150, p: "osnova" });
+    if (champ) root.appendChild(h("div", { class: "plate" }, h("b", null, "🏆 Чемпион " + monName(pm) + ": "), champ.id === "me" ? "ты (+300 XP, +150 ◆)" : champ.name));
     const spun = loser ? (loser.id === "me" ? (S.D.player || {}).duelSpins || {} : (loser.d && loser.d.spins) || {})[pm] : null;
     const sub = !pb.ok ? "В конце месяца проигравший крутит колесо и выполняет то, что выпало." : loser ? "Прошлый месяц (" + monName(pm) + ") проиграл " + (loser.id === "me" ? "ты" : loser.name) + "." : "Прошлый месяц (" + monName(pm) + ") — ничья в хвосте, колесо не крутим.";
     root.appendChild(S.win("Колесо наказаний", sub, wheelEl(spun == null ? null : spun, !!(loser && loser.id === "me" && spun == null), (pick) => { const sp = Object.assign({}, (S.D.player || {}).duelSpins || {}, { [pm]: pick }); S.setPlayer({ duelSpins: sp }); setTimeout(() => S.duelSync(true), 500); }, loser && loser.id !== "me" ? loser.name : null),
