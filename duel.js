@@ -38,10 +38,10 @@
   const ym = (d) => d.slice(0, 7);
   const prevMonth = (m) => { const a = m.split("-").map(Number); return new Date(Date.UTC(a[0], a[1] - 2, 1)).toISOString().slice(0, 7); };
   function monthStats(m) {
-    const t = S.today(), nb = Math.max(1, MAINN());
-    let d = m + "-01", nd = 0, main = 0, perfect = 0, cl = 0;
-    while (ym(d) === m && d <= t) { if (d >= startDay()) { nd++; const md = mainDone(d); main += md; if (md >= nb) perfect++; if (closed(d)) cl++; } d = S.addDays(d, 1); }
-    return { month: m, mainPct: nd ? Math.round((100 * main) / (nb * nd)) : 0, perfect, closed: cl, nd };
+    const t = S.today(), nbOf = (d) => Math.max(1, S.mainTotal ? S.mainTotal(d) : MAINN());
+    let d = m + "-01", nd = 0, main = 0, poss = 0, perfect = 0, cl = 0;
+    while (ym(d) === m && d <= t) { if (d >= startDay()) { nd++; const md = mainDone(d), nb = nbOf(d); main += md; poss += nb; if (md >= nb) perfect++; if (closed(d)) cl++; } d = S.addDays(d, 1); }
+    return { month: m, mainPct: poss ? Math.round((100 * main) / poss) : 0, perfect, closed: cl, nd };
   }
   function daysReport(n) {
     const out = {}, t = S.today();

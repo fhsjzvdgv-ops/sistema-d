@@ -4,7 +4,7 @@ window.APP = {
   box: "https://textdb.dev/api/data/e70f9805-330d-4735-8cec-187972f073c2-",
   me: "dariy", meName: "Дарий",
   rivals: [{ id: "eduard", name: "Эдуард" }, { id: "ilya", name: "Илья" }],
-  main: ["music", "train", "brave", "breath", "sweet", "plan"],
+  main: ["music", "train", "brave", "breath", "sweet", "plan", "read", "report"],
   extra: { key: "music", name: "Музыка", hex: "#FF7AD9", short: "биты, запись, сведение", stat: "Звук" },
   why: { text: "Изменить жизнь в лучшую сторону — чтобы были движения вверх", goals: ["Выпустить EP", "Доснять клип", "Сдвинуться с места так, чтобы я сам и все охуели"] },
   tg: "https://t.me/kurayg"

@@ -26,7 +26,7 @@
     try { run(P); } catch (e) { console.error(e); }
     Promise.all(P).catch(() => {}).then(() => { running = false; });
   };
-  /* серия: только 6 главных дел; десятки дней; каждая новая десятка требует +1 главное дело */
+  /* серия: только главные дела; десятки дней; каждая новая десятка требует +1 главное дело */
   const MAIN = (window.APP && window.APP.main) || ["music", "train", "brave", "breath", "sweet", "plan"];
   S.mainDone = (d) => MAIN.filter((k) => S.has("blk-" + d + "-" + k)).length;
   // начало игры — самый ранний день с закрытым главным делом (или записанный старт, если он раньше)
@@ -35,13 +35,17 @@
     Object.keys(S.D.ev || {}).forEach((id) => { const m = /^blk-(\d{4}-\d\d-\d\d)-/.exec(id); if (m && m[1] < first) first = m[1]; });
     return first;
   };
+  // с 25.10 — 5 главных из 8 для зачёта, за каждую десятку +1 (максимум 7); раньше было 3 из 6 (максимум 6)
+  S.RULE5 = "2026-10-25";
+  S.needFor = (d, tens) => (d < S.RULE5 ? Math.min(6, 3 + tens) : Math.min(7, 5 + tens));
+  S.mainTotal = (d) => (d < S.RULE5 ? 6 : MAIN.length);
   // разбор каждого дня: в серию / прощён (1 пропуск в неделю) / заморозка / сорван
   S.streakCalc = function () {
     const t = S.today(), start = S.gameStart();
     const freezeFor = (d) => S.X && S.X.list.some((e) => e.k === "use" && e.m && e.m.item === "freeze" && e.m.forDate === d);
     let tens = 0, inTen = 0, run = 0, best = 0; const need = {}, st = {}, wkOff = {};
     for (let d = start; d <= t; d = S.addDays(d, 1)) {
-      need[d] = Math.min(6, 3 + tens);
+      need[d] = S.needFor(d, tens);
       const ws = S.weekStart(d);
       if (S.mainDone(d) >= need[d]) { st[d] = "ok"; inTen++; run++; if (inTen >= 10) { tens++; inTen = 0; } }
       else if (d === t) st[d] = "today";
@@ -57,7 +61,7 @@
   S.dayClosed = (d) => S.mainDone(d) >= (S.streakCalc().need[d] || 3);
   S.minWin = function () {
     const c = S.streakCalc(), t = S.today(), n = S.mainDone(t), ok = n >= c.today, left = Math.max(0, c.today - n);
-    const dots = h("div", { class: "mind" }, Array.from({ length: 6 }, (_, i) => h("span", { class: i < n ? "on" : "" })));
+    const dots = h("div", { class: "mind" }, Array.from({ length: S.mainTotal(t) }, (_, i) => h("span", { class: i < n ? "on" : "" })));
     const offUsed = !!c.wkOff[S.weekStart(t)];
     // десятка: 10 клеток, закрашены дни текущей десятки
     const ten = h("div", { class: "mind ten" }, Array.from({ length: 10 }, (_, i) => h("span", { class: i < c.inTen ? "on" : "" })));
@@ -66,7 +70,7 @@
       h("div", { class: "muted" }, "Сегодня закрыто " + n + " из " + c.today + " нужных главных дел:"), dots,
       h("div", { class: "muted" }, "Текущая десятка:"), ten,
       h("ul", { class: "conds" },
-        h("li", null, "День в серию — когда закрыл " + c.today + " из 6 главных дел. За каждую собранную десятку планка +1 (максимум 6)."),
+        h("li", null, "День в серию — когда закрыл " + c.today + " из " + S.mainTotal(t) + " главных дел. За каждую собранную десятку планка +1 (максимум 7)."),
         h("li", null, "Собрал 10 дней — десятка сохраняется навсегда, +XP, золото и сундук."),
         h("li", null, "Один пропуск в неделю прощается сам" + (offUsed ? " — на этой неделе уже использован." : " — на этой неделе ещё свободен.")),
         h("li", null, "Второй пропуск за неделю — текущая десятка начинается заново, −30 XP, −50 ◆ и 30 отжиманий в долг. Собранные десятки не сгорают."),
@@ -99,7 +103,7 @@
         }
       }
       const day = S.X.days[d] || { xp: 0, q: 0 }, md = S.mainDone(d);
-      P.push(S.db.doc("log/" + d).set({ date: d, xp: day.xp, headline: ok ? "День в серию: +" + day.xp + " XP" : "День не в серию", text: "Главных дел: " + md + " из 6 (нужно было " + need + ")." + (note ? " " + note : "") + "\nОдин принцип на завтра: начни с самого лёгкого главного дела до телефона." }));
+      P.push(S.db.doc("log/" + d).set({ date: d, xp: day.xp, headline: ok ? "День в серию: +" + day.xp + " XP" : "День не в серию", text: "Главных дел: " + md + " из " + S.mainTotal(d) + " (нужно было " + need + ")." + (note ? " " + note : "") + "\nОдин принцип на завтра: начни с самого лёгкого главного дела до телефона." }));
     }
     // 2) серия в десятках
     const sc = S.streakCalc(), st = S.D.state || {}, patch = {};
@@ -111,7 +115,7 @@
       L.streakB.push("ten-" + sc.tens);
       P.push(S.writeEv("streak-ten-" + sc.tens, { k: "streak", t: "Серия " + sc.tens + ": десять дней подряд", p: "osnova", xp: 100 * sc.tens, g: 50 * sc.tens }));
       P.push(S.writeEv("chest-ten-" + sc.tens, { k: "chest", t: "Сундук серии " + sc.tens, xp: 0, g: 0, m: { n: sc.tens * 10 } }));
-      S.FX && S.FX.banner("[ СЕРИЯ " + sc.tens + " ]", "Десять дней подряд. Следующая десятка — " + Math.min(6, 3 + sc.tens) + " главных дела в день.");
+      S.FX && S.FX.banner("[ СЕРИЯ " + sc.tens + " ]", "Десять дней подряд. Следующая десятка — " + S.needFor(S.today(), sc.tens) + " главных дел в день.");
     }
     // 3) фаза
     const ph = (rr.phases || []).find((x) => t >= x.from && (!x.until || t <= x.until));
@@ -254,8 +258,8 @@
     lines.push(row("Сегодня", doneToday ? "✓ сделано" : "ещё нет"));
     const cond = [
       base && base.repeatFlag ? "Повторяется каждый день. Засчитывается за день, если отметил до 23:59." : "Разовое дело: отметил — закрыто.",
-      blk ? "Главное дело — идёт в серию. Серия считается десятками дней; сейчас нужно " + S.minNeed() + " из 6 главных в день." : "Не главное дело: даёт опыт и золото, но в серию не идёт.",
-      blk ? "Все 6 главных за день = «идеальный день» и бонус." : null,
+      blk ? "Главное дело — идёт в серию. Серия считается десятками дней; сейчас нужно " + S.minNeed() + " из " + S.mainTotal(S.today()) + " главных в день." : "Не главное дело: даёт опыт и золото, но в серию не идёт.",
+      blk ? "Все главные за день = «идеальный день» и бонус." : null,
       base && base.proof ? "Пруф: " + base.proof + " — скинуть Эдуарду в Telegram перед зачётом." : null,
       "Не набрал главных дел: −30 XP, −50 ◆ и 30 отжиманий в долг, десятка серии заново (один выходной в неделю прощается).",
       skDef ? "Прокачивает навык «" + skDef.name + "»" + (skSt && skSt.active ? " — дней практики " + (skSt.days || 0) + " из 21." : ". Возьми его в «Навыках», чтобы дни шли в зачёт ступени.") : null
