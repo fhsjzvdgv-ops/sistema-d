@@ -190,6 +190,18 @@
       })));
   }
 
+  /* ================= НАПОМИНАНИЕ: РУЛЕТКА ОТЧЁТА ================= */
+  // вчера блок «Отчёт» не закрыт — на «Сегодня» висит плашка с кнопкой к рулетке (сама рулетка — в «Дуэли»)
+  function repCard() {
+    const t = S.today(), y = S.addDays(t, -1);
+    if (y < "2026-10-25" || !((S.D.config || {}).dailyBlocks || {}).report || S.has("blk-" + y + "-report")) return null;
+    if ((PL().repOk || "") === y || S.X.list.some((e) => e.k === "repspin" && (e.d || S.dayOf(e.ts)) >= t)) return null;
+    return h("div", { class: "plate hot" }, h("b", null, "🎰 Вчера отчёт не отмечен. "), "Не скинул — крутишь рулетку отчёта. Скидывал, но забыл отметить — жми «Скидывал».",
+      h("div", { class: "raid-who" },
+        h("button", { class: "btn", type: "button", onclick: () => S.go("duel") }, "К рулетке"),
+        h("button", { class: "btn ghost", type: "button", onclick: () => S.setPlayer({ repOk: y }) }, "Скидывал")));
+  }
+
   /* ================= ВСТАВКА В ЭКРАНЫ ================= */
   const today0 = V.today;
   V.today = function (root) {
@@ -198,6 +210,7 @@
       const top = root.firstChild;
       root.insertBefore(whyCard(), top);
       root.insertBefore(x2Card(), top);
+      const rc = repCard(); if (rc) root.insertBefore(rc, top);
       const pc = pickCard(), hs = root.querySelector(".hs");
       if (pc) { if (hs && hs.parentNode) hs.parentNode.appendChild(pc); else root.appendChild(pc); }
     } catch (e) { if (window.console) console.error(e); }
