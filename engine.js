@@ -50,7 +50,7 @@
       if (S.mainDone(d) >= need[d]) { st[d] = "ok"; inTen++; run++; if (inTen >= 10) { tens++; inTen = 0; } }
       else if (d === t) st[d] = "today";
       else if (freezeFor(d)) st[d] = "freeze";
-      else if (!wkOff[ws]) { wkOff[ws] = d; st[d] = "off"; }
+      else if (!wkOff[ws] && !(S.season && S.season(d).noOff)) { wkOff[ws] = d; st[d] = "off"; }
       else { st[d] = "miss"; inTen = 0; run = 0; }
       if (run > best) best = run;
     }
@@ -72,8 +72,10 @@
       h("ul", { class: "conds" },
         h("li", null, "День в серию — когда закрыл " + c.today + " из " + S.mainTotal(t) + " главных дел. За каждую собранную десятку планка +1 (максимум 7)."),
         h("li", null, "Собрал 10 дней — десятка сохраняется навсегда, +XP, золото и сундук."),
-        h("li", null, "Один пропуск в неделю прощается сам" + (offUsed ? " — на этой неделе уже использован." : " — на этой неделе ещё свободен.")),
-        h("li", null, "Второй пропуск за неделю — текущая десятка начинается заново, −30 XP, −50 ◆ и 30 отжиманий в долг. Собранные десятки не сгорают."),
+        (S.season && S.season(t).noOff) ? h("li", null, "🔥 Хардкор-неделя: прощённого выходного нет, любой пропуск рвёт серию.")
+          : h("li", null, "Один пропуск в неделю прощается сам" + (offUsed ? " — на этой неделе уже использован." : " — на этой неделе ещё свободен.")),
+        (() => { const pp = S.season ? S.season(t).pen : { xp: 30, g: 50, push: 30 }; return h("li", null, "Пропуск (не прощённый) — текущая десятка начинается заново, −" + pp.xp + " XP, −" + pp.g + " ◆ и " + pp.push + " отжиманий в долг. Собранные десятки не сгорают."); })(),
+        (S.season && S.season(t).proofXp) ? h("li", null, "Главное дело с пруфом не закрыто до полуночи — −" + S.season(t).proofXp + " XP за каждое.") : null,
         h("li", null, "Заморозка из магазина закрывает пропуск без потерь.")),
       h("button", { class: "btn ghost wide", type: "button", onclick: () => S.go("history") }, "История по дням →"));
   };
@@ -97,10 +99,24 @@
         if (sd === "freeze") note = "Пропуск закрыт заморозкой.";
         else if (sd === "off") { L.dayOffs[ws] = d; note = "Пропуск прощён: один выходной в неделю."; }
         else if ((rr.penalty || {}).mode === "on" && !S.has("pen-" + d)) {
-          P.push(S.writeEv("pen-" + d, { k: "pen", t: "Пропуск дня", xp: -30, g: -50, p: "osnova", d, ts: Date.parse(d + "T23:59:00+04:00") }));
-          P.push(S.ttCreate({ title: "💪 Долг: 30 отжиманий (за " + S.fmtDay(d) + ")", projectId: "sys", tags: ["тело"], priority: 3, content: "Штраф за пропуск дня. Можно частями. Отметь, когда отдашь." }).catch(() => {}));
-          note = "Штраф: −30 XP, −50 ◆ и 30 отжиманий в долг. Десятка серии начинается заново.";
+          const sz = S.season ? S.season(d) : { pen: { xp: 30, g: 50, push: 30 } }, pp = sz.pen;
+          P.push(S.writeEv("pen-" + d, { k: "pen", t: "Пропуск дня" + (sz.hc ? " (хардкор)" : ""), xp: -pp.xp, g: -pp.g, p: "osnova", d, ts: Date.parse(d + "T23:59:00+04:00") }));
+          P.push(S.ttCreate({ title: "💪 Долг: " + pp.push + " отжиманий (за " + S.fmtDay(d) + ")", projectId: "sys", tags: ["тело"], priority: 3, content: "Штраф за пропуск дня. Можно частями. Отметь, когда отдашь." }).catch(() => {}));
+          note = "Штраф: −" + pp.xp + " XP, −" + pp.g + " ◆ и " + pp.push + " отжиманий в долг. Десятка серии начинается заново.";
         }
+      }
+      // сезон 2: главное дело с пруфом не закрыто (= пруф не скинут) — отдельный минус за каждое
+      const szp = S.season ? S.season(d) : null;
+      if (szp && szp.proofXp) {
+        const TTt = window.SYSD.TT().tasks, cfgB = (S.D.config || {}).dailyBlocks || {};
+        let nProof = Object.keys(S.D.ev || {}).filter((id) => id.indexOf("prfpen-" + d + "-") === 0).length;
+        Object.keys(cfgB).forEach((k) => {
+          if (nProof >= 3 || MAIN.indexOf(k) < 0 || S.has("blk-" + d + "-" + k) || S.has("prfpen-" + d + "-" + k)) return;
+          const tid = ((cfgB[k].steps || [])[0] || {}).taskId, base = tid && TTt[tid];
+          if (!base || !base.proof) return;
+          nProof++;
+          P.push(S.writeEv("prfpen-" + d + "-" + k, { k: "pen", t: "Нет пруфа: " + (cfgB[k].name || k) + (szp.hc ? " (хардкор)" : ""), xp: -szp.proofXp, g: -Math.round(szp.proofXp / 2), p: "osnova", d, ts: Date.parse(d + "T23:58:00+04:00") }));
+        });
       }
       const day = S.X.days[d] || { xp: 0, q: 0 }, md = S.mainDone(d);
       P.push(S.db.doc("log/" + d).set({ date: d, xp: day.xp, headline: ok ? "День в серию: +" + day.xp + " XP" : "День не в серию", text: "Главных дел: " + md + " из " + S.mainTotal(d) + " (нужно было " + need + ")." + (note ? " " + note : "") + "\nОдин принцип на завтра: начни с самого лёгкого главного дела до телефона." }));

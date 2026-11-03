@@ -18,6 +18,32 @@
   }
   const kd = (key, ...kids) => { ui.open = ui.open || {}; return S.keep(h("details", { class: "kn" }, ...kids), key); };
   const PL = () => S.D.player || {};
+
+  /* ================= СЕЗОНЫ ================= */
+  // Сезон 1 «Пробуждение» — с первого дня по 8.11. Сезон 2 «Закалка» — с 9.11: штрафы жёстче, пруфы обязательны.
+  // Первая неделя сезона 2 (9–15.11) — Хардкор: без прощённого выходного, штрафы ×1.5–2.
+  const S2 = "2026-11-09", HC_FROM = "2026-11-09", HC_TO = "2026-11-15";
+  S.season = function (d) {
+    d = d || S.today();
+    const hc = d >= HC_FROM && d <= HC_TO, s2 = d >= S2;
+    return { n: s2 ? 2 : 1, name: s2 ? "Закалка" : "Пробуждение", hc, noOff: hc,
+      pen: hc ? { xp: 100, g: 150, push: 50 } : s2 ? { xp: 60, g: 100, push: 40 } : { xp: 30, g: 50, push: 30 },
+      proofXp: hc ? 40 : s2 ? 25 : 0 };
+  };
+  function seasonCard() {
+    const t = S.today(), z = S.season(t);
+    const left = (a) => Math.round((Date.parse(a) - Date.parse(t)) / 864e5);
+    if (t < S2) return h("div", { class: "plate hot" }, h("b", null, "⚠ Через " + left(S2) + " дн. — Сезон 2 «Закалка». "),
+      "Сезон 1 «Пробуждение» был разгоном: прощали, штрафовали мягко. С 9 ноября правила жёстче, а первая неделя сезона (9–15.11) — ХАРДКОР:",
+      h("ul", { class: "conds" },
+        h("li", null, "прощённого выходного нет — любой пропуск рвёт серию;"),
+        h("li", null, "пропуск дня: −100 XP, −150 ◆ и 50 отжиманий (после хардкора — −60 XP, −100 ◆, 40 отжиманий);"),
+        h("li", null, "главное дело с пруфом не закрыто до полуночи: −40 XP за каждое, до 3 в день (после хардкора −25);"),
+        h("li", null, "все штрафы видны соперникам во вкладке «Дуэль».")));
+    if (z.hc) return h("div", { class: "plate hot" }, h("b", null, "🔥 ХАРДКОР-НЕДЕЛЯ · день " + (left(t) - left(HC_FROM) + 1) + " из 7. "),
+      "Выходных нет. Пропуск: −100 XP, −150 ◆, 50 отжиманий. Нет пруфа: −40 XP за каждое главное (до 3 в день). До конца хардкора " + (left(HC_TO) + 1) + " дн.");
+    return null;
+  }
   const hash = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const vhead = (title) => h("div", { class: "vhead" }, h("button", { class: "back", type: "button", onclick: () => S.go("more"), "aria-label": "Назад" }, "‹"), h("h1", null, title));
 
@@ -145,6 +171,11 @@
     x.raid = { key: r.key, done: !!(p.raid && p.raid[r.key]) };
     x.resp = p.resp || {};
     x.why = (p.why && p.why.text) || "";
+    // штрафы за 14 дней — их видят соперники
+    const from = S.addDays(S.today(), -13);
+    x.pens = S.X.list.filter((e) => (e.k === "pen" || e.k === "lvldown") && (e.d || S.dayOf(e.ts)) >= from)
+      .map((e) => ({ d: e.d || S.dayOf(e.ts), t: String(e.t || "Штраф").slice(0, 60), xp: Math.round(e.xp || 0), g: Math.round(e.g || 0) }));
+    x.season = S.season().n;
     return x;
   };
   function rivalsLive() {
@@ -190,6 +221,20 @@
       })));
   }
 
+  /* ================= ШТРАФЫ ВСЕХ ИГРОКОВ ================= */
+  function pensCard() {
+    const live = rivalsLive(), mine = S.duelMine ? S.duelMine() : {};
+    const who = [{ name: "Ты", pens: mine.pens || [] }].concat((APP.rivals || []).map((r) => ({ name: r.name, pens: (live[r.id] && live[r.id].pens) || null })));
+    const from = S.addDays(S.today(), -6);
+    const det = (w) => {
+      const L = (w.pens || []).filter((x) => x.d >= from).sort((a, b) => (a.d < b.d ? 1 : -1));
+      const sx = L.reduce((a, x) => a + x.xp, 0), sg = L.reduce((a, x) => a + x.g, 0);
+      return kd("pens-" + w.name, h("summary", null, h("span", null, w.name), h("span", { class: "more" }, w.pens == null ? "нет данных" : L.length ? L.length + " шт. · " + sx + " XP · " + sg + " ◆" : "чисто")),
+        h("div", { class: "body" }, L.length ? h("ul", { class: "conds hs-list" }, L.map((x) => h("li", { class: "red" }, S.fmtDay(x.d) + " — " + x.t + " (" + x.xp + " XP)"))) : h("div", { class: "muted" }, w.pens == null ? "Соперник ещё не обновил окно." : "За неделю без штрафов.")));
+    };
+    return S.win("🩸 Штрафы за 7 дней", "Видят все трое. Сезон " + S.season().n + " «" + S.season().name + "».", who.map(det));
+  }
+
   /* ================= НАПОМИНАНИЕ: РУЛЕТКА ОТЧЁТА ================= */
   // вчера блок «Отчёт» не закрыт — на «Сегодня» висит плашка с кнопкой к рулетке (сама рулетка — в «Дуэли»)
   function repCard() {
@@ -209,6 +254,7 @@
     try {
       const top = root.firstChild;
       root.insertBefore(whyCard(), top);
+      const snc = seasonCard(); if (snc) root.insertBefore(snc, top);
       root.insertBefore(x2Card(), top);
       const rc = repCard(); if (rc) root.insertBefore(rc, top);
       const pc = pickCard(), hs = root.querySelector(".hs");
@@ -218,7 +264,7 @@
   V.quests = V.today;
   const duel0 = V.duel;
   if (duel0) V.duel = function (root) {
-    try { root.appendChild(raidCard()); root.appendChild(respCard()); } catch (e) { if (window.console) console.error(e); }
+    try { const sc = seasonCard(); if (sc) root.appendChild(sc); root.appendChild(raidCard()); root.appendChild(pensCard()); root.appendChild(respCard()); } catch (e) { if (window.console) console.error(e); }
     duel0(root);
   };
   const tick0 = S.tick;
